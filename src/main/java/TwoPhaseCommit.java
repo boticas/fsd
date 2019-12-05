@@ -10,12 +10,8 @@ public class TwoPhaseCommit {
     private String username;
     private ArrayList<String> topics;
 
-    // Only set when responding to a prepare
-    private boolean status;
-
     public TwoPhaseCommit(Tweet tweet) {
         this.tweet = tweet;
-        this.status = false;
     }
 
     public TwoPhaseCommit(String username, ArrayList<String> topics) {
@@ -25,7 +21,6 @@ public class TwoPhaseCommit {
             aux.add(t);
         }
         this.topics = aux;
-        this.status = false;
     }
 
     /**
@@ -51,19 +46,5 @@ public class TwoPhaseCommit {
             res.add(t);
         }
         return res;
-    }
-
-    /**
-     * @return the status
-     */
-    public boolean getStatus() {
-        return status;
-    }
-
-    /**
-     * @param status the status to set
-     */
-    public void setStatus(boolean status) {
-        this.status = status;
     }
 }

@@ -1,9 +1,6 @@
 # Compiled class file
 *.class
 
-# Log file
-*.log
-
 # BlueJ files
 *.ctxt
 
@@ -24,3 +21,9 @@ hs_err_pid*
 
 #others
 .idea
+
+# Server's logs
+*.log
+
+# Server's databases
+*.data

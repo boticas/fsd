@@ -15,6 +15,10 @@ import org.apache.commons.math3.util.Pair;
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
+import io.atomix.storage.journal.Indexed;
+import io.atomix.storage.journal.SegmentedJournal;
+import io.atomix.storage.journal.SegmentedJournalReader;
+import io.atomix.storage.journal.SegmentedJournalWriter;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
 import io.atomix.utils.serializer.SerializerBuilder;
@@ -58,6 +62,51 @@ public class Twitter {
         }
     }
 
+    public static void applyPendingLog(SegmentedJournal<CoordinatorLog> coordinatorSJ,
+            SegmentedJournal<ServerLog> serverSJ) {
+        synchronized (coordinatorSJ) {
+            SegmentedJournalReader<CoordinatorLog> coordinatorSJR = coordinatorSJ.openReader(0);
+            while (coordinatorSJR.hasNext()) {
+                Indexed<CoordinatorLog> l = coordinatorSJR.next();
+                System.out.println(l.index() + ": " + l.entry());
+            }
+            coordinatorSJR.close();
+        }
+
+        synchronized (serverSJ) {
+            SegmentedJournalReader<ServerLog> serverSJR = serverSJ.openReader(0);
+            while (serverSJR.hasNext()) {
+                Indexed<ServerLog> l = serverSJR.next();
+                System.out.println(l.index() + ": " + l.entry());
+            }
+            serverSJR.close();
+        }
+    }
+
+    public static void writeToCoordinatorLog(SegmentedJournalWriter<CoordinatorLog> coordinatorSJW, TwoPhaseCommit tpc,
+            CoordinatorLog.Status status) {
+        CoordinatorLog log = new CoordinatorLog();
+        log.setTpc(tpc);
+        log.setStatus(status);
+
+        synchronized (coordinatorSJW) {
+            coordinatorSJW.append(log);
+            coordinatorSJW.flush();
+        }
+    }
+
+    public static void writeToServerLog(SegmentedJournalWriter<ServerLog> serverSJW, TwoPhaseCommit tpc,
+            ServerLog.Status status) {
+        ServerLog log = new ServerLog();
+        log.setTpc(tpc);
+        log.setStatus(status);
+
+        synchronized (serverSJW) {
+            serverSJW.append(log);
+            serverSJW.flush();
+        }
+    }
+
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
             System.out.println("Indique as portas dos servidores (a do atual primeiro)");
@@ -77,6 +126,29 @@ public class Twitter {
 
         HashMap<String, ArrayList<String>> subscriptionsDB = res.getSecond();
         ReentrantLock subscriptionsDBLock = new ReentrantLock();
+
+        // Setup the infrastructure related to TPC and respective logs
+        // Coordinator
+        SegmentedJournal<CoordinatorLog> coordinatorSJ = SegmentedJournal.<CoordinatorLog>builder()
+                .withName("coordinatorLog-" + myPort)
+                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
+                        .addType(CoordinatorLog.class).addType(CoordinatorLog.Status.class).build())
+                .build();
+        SegmentedJournalWriter<CoordinatorLog> coordinatorSJW = coordinatorSJ.writer();
+
+        ArrayList<CoordinatorLog> ongoingCoordinatorTPC = new ArrayList<>();
+
+        // Server
+        SegmentedJournal<ServerLog> serverSJ = SegmentedJournal.<ServerLog>builder().withName("serverLog-" + myPort)
+                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
+                        .addType(ServerLog.class).addType(ServerLog.Status.class).build())
+                .build();
+        SegmentedJournalWriter<ServerLog> serverSJW = serverSJ.writer();
+
+        ArrayList<ServerLog> ongoingTPC = new ArrayList<>();
+
+        // Aplicar as operações pendentes no log
+        applyPendingLog(coordinatorSJ, serverSJ);
 
         // Get the server ready for receiving messages from its peers
         ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -104,6 +176,10 @@ public class Twitter {
             newTweet.orderTopics();
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(newTweet);
+
+            writeToCoordinatorLog(coordinatorSJW, prepare, CoordinatorLog.Status.STARTED);
+
+            ms.sendAsync(Address.from("localhost", myPort), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             for (int port : otherPorts) {
                 ms.sendAsync(Address.from("localhost", port), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             }
@@ -114,6 +190,10 @@ public class Twitter {
             SubscribeTopics st = subscribeTopicsSerializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(st.getUsername(), st.getTopics());
+
+            writeToCoordinatorLog(coordinatorSJW, prepare, CoordinatorLog.Status.STARTED);
+
+            ms.sendAsync(Address.from("localhost", myPort), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             for (int port : otherPorts) {
                 ms.sendAsync(Address.from("localhost", port), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             }
@@ -142,31 +222,41 @@ public class Twitter {
             System.out.println("tpcPrepare");
             TwoPhaseCommit prepare = twoPhaseCommitSerializer.decode(b);
 
-            prepare.setStatus(true);
+            writeToServerLog(serverSJW, prepare, ServerLog.Status.PREPARED);
 
-            ms.sendAsync(Address.from("localhost", a.port()), "tpcResponse", twoPhaseCommitSerializer.encode(prepare));
+            ms.sendAsync(Address.from("localhost", a.port()), "tpcResponseOk",
+                    twoPhaseCommitSerializer.encode(prepare));
         }, executor);
 
-        ms.registerHandler("tpcResponse", (a, b) -> {
-            System.out.println("tpcResponse");
+        ms.registerHandler("tpcResponseOk", (a, b) -> {
+            System.out.println("tpcResponseOk");
             TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
 
-            if (response.getStatus()) {
-                for (int port : otherPorts) {
-                    ms.sendAsync(Address.from("localhost", port), "tpcCommit",
-                            twoPhaseCommitSerializer.encode(response));
-                }
-            } else {
-                for (int port : otherPorts) {
-                    ms.sendAsync(Address.from("localhost", port), "tpcRollback",
-                            twoPhaseCommitSerializer.encode(response));
-                }
+            writeToCoordinatorLog(coordinatorSJW, response, CoordinatorLog.Status.COMMITED);
+
+            ms.sendAsync(Address.from("localhost", myPort), "tpcCommit", twoPhaseCommitSerializer.encode(response));
+            for (int port : otherPorts) {
+                ms.sendAsync(Address.from("localhost", port), "tpcCommit", twoPhaseCommitSerializer.encode(response));
+            }
+        }, executor);
+
+        ms.registerHandler("tpcResponseNotOk", (a, b) -> {
+            System.out.println("tpcResponseNotOk");
+            TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
+
+            writeToCoordinatorLog(coordinatorSJW, response, CoordinatorLog.Status.ABORTED);
+
+            ms.sendAsync(Address.from("localhost", myPort), "tpcRollback", twoPhaseCommitSerializer.encode(response));
+            for (int port : otherPorts) {
+                ms.sendAsync(Address.from("localhost", port), "tpcRollback", twoPhaseCommitSerializer.encode(response));
             }
         }, executor);
 
         ms.registerHandler("tpcCommit", (a, b) -> {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = twoPhaseCommitSerializer.decode(b);
+
+            writeToServerLog(serverSJW, commit, ServerLog.Status.COMMITED);
 
             if (commit.getTweet() != null) {
                 // Add the new tweet to the list of tweets for each of its topics
@@ -196,6 +286,8 @@ public class Twitter {
         ms.registerHandler("tpcRollback", (a, b) -> {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = twoPhaseCommitSerializer.decode(b);
+
+            writeToServerLog(serverSJW, rollback, ServerLog.Status.ABORTED);
         }, executor);
     }
 }
