@@ -1,159 +1,38 @@
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.ReentrantLock;
-
-import org.apache.commons.math3.util.Pair;
 
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
-import io.atomix.storage.journal.Indexed;
-import io.atomix.storage.journal.SegmentedJournal;
-import io.atomix.storage.journal.SegmentedJournalReader;
-import io.atomix.storage.journal.SegmentedJournalWriter;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
 import io.atomix.utils.serializer.SerializerBuilder;
 
 public class Twitter {
-    public static Pair<HashMap<String, ArrayList<Tweet>>, HashMap<String, ArrayList<String>>> initializeDB(int port) {
-        HashMap<String, ArrayList<Tweet>> tweetsDB = new HashMap<>();
-        HashMap<String, ArrayList<String>> subscriptionsDB = new HashMap<>();
-        try {
-            FileInputStream fi = new FileInputStream("db-" + port + ".data");
-            ObjectInputStream oi = new ObjectInputStream(fi);
-
-            tweetsDB = (HashMap<String, ArrayList<Tweet>>) oi.readObject();
-            subscriptionsDB = (HashMap<String, ArrayList<String>>) oi.readObject();
-
-            oi.close();
-            fi.close();
-        } catch (FileNotFoundException e) {
-            System.out.println("No database found. Starting with an empty one");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return new Pair<HashMap<String, ArrayList<Tweet>>, HashMap<String, ArrayList<String>>>(tweetsDB,
-                subscriptionsDB);
-    }
-
-    public static void saveDB(int port, HashMap<String, ArrayList<Tweet>> tweetsDB,
-            HashMap<String, ArrayList<String>> subscriptionsDB) {
-        try {
-            FileOutputStream f = new FileOutputStream("db-" + port + ".data");
-            ObjectOutputStream o = new ObjectOutputStream(f);
-
-            o.writeObject(tweetsDB);
-            o.writeObject(subscriptionsDB);
-
-            o.close();
-            f.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void applyPendingLog(SegmentedJournal<CoordinatorLog> coordinatorSJ,
-            SegmentedJournal<ServerLog> serverSJ) {
-        synchronized (coordinatorSJ) {
-            SegmentedJournalReader<CoordinatorLog> coordinatorSJR = coordinatorSJ.openReader(0);
-            while (coordinatorSJR.hasNext()) {
-                Indexed<CoordinatorLog> l = coordinatorSJR.next();
-                System.out.println(l.index() + ": " + l.entry());
-            }
-            coordinatorSJR.close();
-        }
-
-        synchronized (serverSJ) {
-            SegmentedJournalReader<ServerLog> serverSJR = serverSJ.openReader(0);
-            while (serverSJR.hasNext()) {
-                Indexed<ServerLog> l = serverSJR.next();
-                System.out.println(l.index() + ": " + l.entry());
-            }
-            serverSJR.close();
-        }
-    }
-
-    public static void writeToCoordinatorLog(SegmentedJournalWriter<CoordinatorLog> coordinatorSJW, TwoPhaseCommit tpc,
-            CoordinatorLog.Status status) {
-        CoordinatorLog log = new CoordinatorLog();
-        log.setTpc(tpc);
-        log.setStatus(status);
-
-        synchronized (coordinatorSJW) {
-            coordinatorSJW.append(log);
-            coordinatorSJW.flush();
-        }
-    }
-
-    public static void writeToServerLog(SegmentedJournalWriter<ServerLog> serverSJW, TwoPhaseCommit tpc,
-            ServerLog.Status status) {
-        ServerLog log = new ServerLog();
-        log.setTpc(tpc);
-        log.setStatus(status);
-
-        synchronized (serverSJW) {
-            serverSJW.append(log);
-            serverSJW.flush();
-        }
-    }
-
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
-            System.out.println("Indique as portas dos servidores (a do atual primeiro)");
+            System.out.println("Indique o endereço deste servidor e os dos outros servidores (ip:porta)");
             System.exit(1);
         }
 
         // Extract the ports of the servers
-        int myPort = Integer.parseInt(args[0]);
-        ArrayList<Integer> otherPorts = new ArrayList<Integer>(args.length - 1);
+        Address myAddress = Address.from(args[0]);
+        ArrayList<Address> otherAddresses = new ArrayList<Address>(args.length - 1);
         for (int i = 1; i < args.length; i++)
-            otherPorts.add(Integer.parseInt(args[i]));
+            otherAddresses.add(Address.from(args[i]));
 
-        // Retreive the messages and the subscriptions from the storage if they exist
-        Pair<HashMap<String, ArrayList<Tweet>>, HashMap<String, ArrayList<String>>> res = initializeDB(myPort);
-        HashMap<String, ArrayList<Tweet>> tweetsDB = res.getFirst();
-        ReentrantLock tweetsDBLock = new ReentrantLock();
-
-        HashMap<String, ArrayList<String>> subscriptionsDB = res.getSecond();
-        ReentrantLock subscriptionsDBLock = new ReentrantLock();
+        // Setup the infrastructure related to DB managment
+        DBHandler dbHandler = new DBHandler(myAddress.port());
 
         // Setup the infrastructure related to TPC and respective logs
-        // Coordinator
-        SegmentedJournal<CoordinatorLog> coordinatorSJ = SegmentedJournal.<CoordinatorLog>builder()
-                .withName("coordinatorLog-" + myPort)
-                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(CoordinatorLog.class).addType(CoordinatorLog.Status.class).build())
-                .build();
-        SegmentedJournalWriter<CoordinatorLog> coordinatorSJW = coordinatorSJ.writer();
-
-        ArrayList<CoordinatorLog> ongoingCoordinatorTPC = new ArrayList<>();
-
-        // Server
-        SegmentedJournal<ServerLog> serverSJ = SegmentedJournal.<ServerLog>builder().withName("serverLog-" + myPort)
-                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(ServerLog.class).addType(ServerLog.Status.class).build())
-                .build();
-        SegmentedJournalWriter<ServerLog> serverSJW = serverSJ.writer();
-
-        ArrayList<ServerLog> ongoingTPC = new ArrayList<>();
-
-        // Aplicar as operações pendentes no log
-        applyPendingLog(coordinatorSJ, serverSJ);
+        TPCLogger tpcLogger = new TPCLogger(otherAddresses.size() + 1, myAddress.port());
 
         // Get the server ready for receiving messages from its peers
         ExecutorService executor = Executors.newFixedThreadPool(1);
 
-        ManagedMessagingService ms = new NettyMessagingService("twitter", Address.from(myPort), new MessagingConfig());
+        ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.start();
 
         // Serializers for the messages received fom the clients
@@ -177,11 +56,11 @@ public class Twitter {
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(newTweet);
 
-            writeToCoordinatorLog(coordinatorSJW, prepare, CoordinatorLog.Status.STARTED);
+            tpcLogger.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED);
 
-            ms.sendAsync(Address.from("localhost", myPort), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
-            for (int port : otherPorts) {
-                ms.sendAsync(Address.from("localhost", port), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            ms.sendAsync(myAddress, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            for (Address address : otherAddresses) {
+                ms.sendAsync(address, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             }
         }, executor);
 
@@ -191,11 +70,11 @@ public class Twitter {
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(st.getUsername(), st.getTopics());
 
-            writeToCoordinatorLog(coordinatorSJW, prepare, CoordinatorLog.Status.STARTED);
+            tpcLogger.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED);
 
-            ms.sendAsync(Address.from("localhost", myPort), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
-            for (int port : otherPorts) {
-                ms.sendAsync(Address.from("localhost", port), "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            ms.sendAsync(myAddress, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            for (Address address : otherAddresses) {
+                ms.sendAsync(address, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
             }
         }, executor);
 
@@ -222,21 +101,21 @@ public class Twitter {
             System.out.println("tpcPrepare");
             TwoPhaseCommit prepare = twoPhaseCommitSerializer.decode(b);
 
-            writeToServerLog(serverSJW, prepare, ServerLog.Status.PREPARED);
+            tpcLogger.updateServerLog(prepare, ServerLog.Status.PREPARED);
 
-            ms.sendAsync(Address.from("localhost", a.port()), "tpcResponseOk",
-                    twoPhaseCommitSerializer.encode(prepare));
+            ms.sendAsync(Address.from(a.host(), a.port()), "tpcResponseOk", twoPhaseCommitSerializer.encode(prepare));
         }, executor);
 
         ms.registerHandler("tpcResponseOk", (a, b) -> {
             System.out.println("tpcResponseOk");
             TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
 
-            writeToCoordinatorLog(coordinatorSJW, response, CoordinatorLog.Status.COMMITED);
-
-            ms.sendAsync(Address.from("localhost", myPort), "tpcCommit", twoPhaseCommitSerializer.encode(response));
-            for (int port : otherPorts) {
-                ms.sendAsync(Address.from("localhost", port), "tpcCommit", twoPhaseCommitSerializer.encode(response));
+            boolean allAccepted = tpcLogger.updateCoordinatorLog(response, CoordinatorLog.Status.COMMITED);
+            if (allAccepted) {
+                ms.sendAsync(myAddress, "tpcCommit", twoPhaseCommitSerializer.encode(response));
+                for (Address address : otherAddresses) {
+                    ms.sendAsync(address, "tpcCommit", twoPhaseCommitSerializer.encode(response));
+                }
             }
         }, executor);
 
@@ -244,11 +123,11 @@ public class Twitter {
             System.out.println("tpcResponseNotOk");
             TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
 
-            writeToCoordinatorLog(coordinatorSJW, response, CoordinatorLog.Status.ABORTED);
+            tpcLogger.updateCoordinatorLog(response, CoordinatorLog.Status.ABORTED);
 
-            ms.sendAsync(Address.from("localhost", myPort), "tpcRollback", twoPhaseCommitSerializer.encode(response));
-            for (int port : otherPorts) {
-                ms.sendAsync(Address.from("localhost", port), "tpcRollback", twoPhaseCommitSerializer.encode(response));
+            ms.sendAsync(myAddress, "tpcRollback", twoPhaseCommitSerializer.encode(response));
+            for (Address address : otherAddresses) {
+                ms.sendAsync(address, "tpcRollback", twoPhaseCommitSerializer.encode(response));
             }
         }, executor);
 
@@ -256,38 +135,19 @@ public class Twitter {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = twoPhaseCommitSerializer.decode(b);
 
-            writeToServerLog(serverSJW, commit, ServerLog.Status.COMMITED);
+            tpcLogger.updateServerLog(commit, ServerLog.Status.COMMITED);
 
-            if (commit.getTweet() != null) {
-                // Add the new tweet to the list of tweets for each of its topics
-                Tweet newTweet = commit.getTweet();
-
-                tweetsDBLock.lock();
-                try {
-                    ArrayList<String> topics = newTweet.getTopics();
-                    for (String topic : topics) {
-                        ArrayList<Tweet> tweets = tweetsDB.get(topic);
-                        if (tweets == null) {
-                            tweets = new ArrayList<>();
-                            tweetsDB.put(topic, tweets);
-                        }
-                        tweets.add(newTweet);
-                    }
-                    saveDB(myPort, tweetsDB, subscriptionsDB);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    tweetsDBLock.unlock();
-                }
-            } else {
-                // Update username's subscriptions
-            }
+            if (commit.getTweet() != null)
+                dbHandler.addTweet(commit.getTweet());
+            else
+                dbHandler.updateSubscriptions(commit.getUsername(), commit.getTopics());
         }, executor);
 
         ms.registerHandler("tpcRollback", (a, b) -> {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = twoPhaseCommitSerializer.decode(b);
 
-            writeToServerLog(serverSJW, rollback, ServerLog.Status.ABORTED);
+            tpcLogger.updateServerLog(rollback, ServerLog.Status.ABORTED);
         }, executor);
     }
 }

@@ -47,4 +47,19 @@ public class TwoPhaseCommit {
         }
         return res;
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this)
+            return true;
+
+        if (obj == null || this.getClass() != obj.getClass())
+            return false;
+
+        TwoPhaseCommit tpc = (TwoPhaseCommit) obj;
+        if (this.tweet != null)
+            return this.tweet.equals(tpc.tweet);
+        else
+            return this.username.equals(tpc.username) && this.topics.equals(tpc.topics);
+    }
 }

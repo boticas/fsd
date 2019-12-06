@@ -14,28 +14,27 @@ import io.atomix.utils.serializer.SerializerBuilder;
 public class Client {
     public static void main(String[] args) {
         if (args.length < 2) {
-            System.out.println("Indique a porta do cliente e a dos servidores");
+            System.out.println("Indique o endereço do cliente e os dos servidores (ip:porta)");
             System.exit(1);
         }
 
-        int myPort = Integer.parseInt(args[0]);
-        ArrayList<Integer> servers = new ArrayList<Integer>(args.length - 1);
+        Address myAddress = Address.from(args[0]);
+        ArrayList<Address> servers = new ArrayList<Address>(args.length - 1);
         for (int i = 1; i < args.length; i++)
-            servers.add(Integer.parseInt(args[i]));
+            servers.add(Address.from(args[i]));
 
-        ManagedMessagingService ms = new NettyMessagingService("twitter", Address.from(myPort), new MessagingConfig());
+        ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.start();
 
         Serializer tweetSerializer = new SerializerBuilder().addType(Tweet.class).build();
 
-        ArrayList<String> topics = new ArrayList<>();
-        topics.add("#first");
-        topics.add("#tweet");
-        Tweet t = new Tweet("User", "My first tweet", topics);
-
+        Random random = new Random();
         for (int i = 0; i < 10; i++) {
-            ms.sendAsync(Address.from("localhost", servers.get(new Random().nextInt(servers.size()))), "publishTweet",
-                    tweetSerializer.encode(t));
+            ArrayList<String> topics = new ArrayList<>();
+            topics.add("#f" + random.nextInt());
+            topics.add("#t" + random.nextInt());
+            Tweet t = new Tweet("User", String.valueOf(random.nextInt()), topics);
+            ms.sendAsync(servers.get(random.nextInt(servers.size())), "publishTweet", tweetSerializer.encode(t));
         }
     }
 }

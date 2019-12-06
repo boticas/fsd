@@ -59,4 +59,16 @@ public class Tweet implements Serializable {
     public void orderTopics() {
         this.topics.sort((s1, s2) -> s1.compareTo(s2));
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this)
+            return true;
+
+        if (obj == null || this.getClass() != obj.getClass())
+            return false;
+
+        Tweet t = (Tweet) obj;
+        return this.username.equals(t.username) && this.content.equals(t.content) && this.topics.equals(t.topics);
+    }
 }
