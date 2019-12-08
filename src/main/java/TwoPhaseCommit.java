@@ -4,6 +4,8 @@ import java.util.ArrayList;
  * TwoPhaseCommit
  */
 public class TwoPhaseCommit {
+    private int count;
+
     // Either tweet or username/topics are set; the others must be null
     private Tweet tweet;
 
@@ -21,6 +23,13 @@ public class TwoPhaseCommit {
             aux.add(t);
         }
         this.topics = aux;
+    }
+
+    /**
+     * @return the count
+     */
+    public int getCount() {
+        return count;
     }
 
     /**
@@ -48,6 +57,13 @@ public class TwoPhaseCommit {
         return res;
     }
 
+    /**
+     * @param count the count to set
+     */
+    public void setCount(int count) {
+        this.count = count;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj == this)
@@ -57,6 +73,9 @@ public class TwoPhaseCommit {
             return false;
 
         TwoPhaseCommit tpc = (TwoPhaseCommit) obj;
+        if (this.count != tpc.count)
+            return false;
+
         if (this.tweet != null)
             return this.tweet.equals(tpc.tweet);
         else

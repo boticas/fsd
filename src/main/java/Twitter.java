@@ -17,17 +17,17 @@ public class Twitter {
             System.exit(1);
         }
 
-        // Extract the ports of the servers
+        // Extract the addresses of the servers
         Address myAddress = Address.from(args[0]);
-        ArrayList<Address> otherAddresses = new ArrayList<Address>(args.length - 1);
-        for (int i = 1; i < args.length; i++)
-            otherAddresses.add(Address.from(args[i]));
+        ArrayList<Address> allAddresses = new ArrayList<Address>(args.length);
+        for (int i = 0; i < args.length; i++)
+            allAddresses.add(Address.from(args[i]));
 
         // Setup the infrastructure related to DB managment
         DBHandler dbHandler = new DBHandler(myAddress.port());
 
         // Setup the infrastructure related to TPC and respective logs
-        TPCLogger tpcLogger = new TPCLogger(otherAddresses.size() + 1, myAddress.port());
+        TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port());
 
         // Get the server ready for receiving messages from its peers
         ExecutorService executor = Executors.newFixedThreadPool(1);
@@ -35,52 +35,41 @@ public class Twitter {
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.start();
 
-        // Serializers for the messages received fom the clients
-        Serializer publishTweetSerializer = new SerializerBuilder().addType(Tweet.class).build();
-        Serializer subscribeTopicsSerializer = new SerializerBuilder().addType(SubscribeTopics.class).build();
-        Serializer getTweetsSerializer = new SerializerBuilder().addType(GetTweets.class).build();
-        Serializer getTopicsSerializer = new SerializerBuilder().addType(GetTopics.class).build();
-
-        // Serializers for the messages sent to the clients
-        Serializer responseSerializer = new SerializerBuilder().addType(Response.class).build();
-        Serializer tweetsSerializer = new SerializerBuilder().addType(Tweets.class).build();
-
-        // Serializers for the messages sent between the servers
-        Serializer twoPhaseCommitSerializer = new SerializerBuilder().addType(TwoPhaseCommit.class).addType(Tweet.class)
-                .build();
+        // Serializer for all the messages
+        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Tweets.class)
+                .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
+                .addType(Response.class).addType(TwoPhaseCommit.class).build();
 
         ms.registerHandler("publishTweet", (a, b) -> {
             System.out.println("publishTweet");
-            Tweet newTweet = publishTweetSerializer.decode(b);
+            Tweet newTweet = serializer.decode(b);
             newTweet.orderTopics();
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(newTweet);
 
-            tpcLogger.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED);
+            tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
-            ms.sendAsync(myAddress, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
-            for (Address address : otherAddresses) {
-                ms.sendAsync(address, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            for (Address address : allAddresses) {
+                ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
             }
         }, executor);
 
         ms.registerHandler("subscribeTopics", (a, b) -> {
             System.out.println("subscribeTopics");
-            SubscribeTopics st = subscribeTopicsSerializer.decode(b);
+            SubscribeTopics st = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(st.getUsername(), st.getTopics());
 
-            tpcLogger.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED);
+            tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
-            ms.sendAsync(myAddress, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
-            for (Address address : otherAddresses) {
-                ms.sendAsync(address, "tpcPrepare", twoPhaseCommitSerializer.encode(prepare));
+            for (Address address : allAddresses) {
+                ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
             }
         }, executor);
 
         ms.registerHandler("getTweets", (a, b) -> {
             System.out.println("getTweets");
-            GetTweets gt = getTweetsSerializer.decode(b);
+            GetTweets gt = serializer.decode(b);
             String username = gt.getUsername();
             ArrayList<String> topics = gt.getTopics();
             if (topics == null) {
@@ -92,62 +81,60 @@ public class Twitter {
 
         ms.registerHandler("getTopics", (a, b) -> {
             System.out.println("getTopics");
-            GetTopics gt = getTopicsSerializer.decode(b);
+            GetTopics gt = serializer.decode(b);
             String username = gt.getUsername();
             // Return the topics username is subscribed to
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {
             System.out.println("tpcPrepare");
-            TwoPhaseCommit prepare = twoPhaseCommitSerializer.decode(b);
+            TwoPhaseCommit prepare = serializer.decode(b);
 
-            tpcLogger.updateServerLog(prepare, ServerLog.Status.PREPARED);
+            tpcHandler.updateServerLog(prepare, ServerLog.Status.PREPARED, Address.from(a.host(), a.port()));
 
-            ms.sendAsync(Address.from(a.host(), a.port()), "tpcResponseOk", twoPhaseCommitSerializer.encode(prepare));
+            ms.sendAsync(Address.from(a.host(), a.port()), "tpcResponseOk", serializer.encode(prepare));
         }, executor);
 
         ms.registerHandler("tpcResponseOk", (a, b) -> {
             System.out.println("tpcResponseOk");
-            TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
+            TwoPhaseCommit response = serializer.decode(b);
 
-            boolean allAccepted = tpcLogger.updateCoordinatorLog(response, CoordinatorLog.Status.COMMITED);
+            boolean allAccepted = tpcHandler.updateCoordinatorLog(response, CoordinatorLog.Status.COMMITED);
             if (allAccepted) {
-                ms.sendAsync(myAddress, "tpcCommit", twoPhaseCommitSerializer.encode(response));
-                for (Address address : otherAddresses) {
-                    ms.sendAsync(address, "tpcCommit", twoPhaseCommitSerializer.encode(response));
-                }
+                for (Address address : allAddresses)
+                    ms.sendAsync(address, "tpcCommit", serializer.encode(response));
             }
         }, executor);
 
         ms.registerHandler("tpcResponseNotOk", (a, b) -> {
             System.out.println("tpcResponseNotOk");
-            TwoPhaseCommit response = twoPhaseCommitSerializer.decode(b);
+            TwoPhaseCommit response = serializer.decode(b);
 
-            tpcLogger.updateCoordinatorLog(response, CoordinatorLog.Status.ABORTED);
+            tpcHandler.updateCoordinatorLog(response, CoordinatorLog.Status.ABORTED);
 
-            ms.sendAsync(myAddress, "tpcRollback", twoPhaseCommitSerializer.encode(response));
-            for (Address address : otherAddresses) {
-                ms.sendAsync(address, "tpcRollback", twoPhaseCommitSerializer.encode(response));
+            for (Address address : allAddresses) {
+                ms.sendAsync(address, "tpcRollback", serializer.encode(response));
             }
         }, executor);
 
         ms.registerHandler("tpcCommit", (a, b) -> {
             System.out.println("tpcCommit");
-            TwoPhaseCommit commit = twoPhaseCommitSerializer.decode(b);
+            TwoPhaseCommit commit = serializer.decode(b);
 
-            tpcLogger.updateServerLog(commit, ServerLog.Status.COMMITED);
-
-            if (commit.getTweet() != null)
-                dbHandler.addTweet(commit.getTweet());
-            else
-                dbHandler.updateSubscriptions(commit.getUsername(), commit.getTopics());
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, ServerLog.Status.COMMITED);
+            for (TwoPhaseCommit tpc : tpcsToApply) {
+                if (tpc.getTweet() != null)
+                    dbHandler.addTweet(tpc.getTweet());
+                else
+                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            }
         }, executor);
 
         ms.registerHandler("tpcRollback", (a, b) -> {
             System.out.println("tpcRollback");
-            TwoPhaseCommit rollback = twoPhaseCommitSerializer.decode(b);
+            TwoPhaseCommit rollback = serializer.decode(b);
 
-            tpcLogger.updateServerLog(rollback, ServerLog.Status.ABORTED);
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, ServerLog.Status.ABORTED);
         }, executor);
     }
 }
