@@ -45,7 +45,7 @@ public class Twitter {
             Tweet newTweet = serializer.decode(b);
             newTweet.orderTopics();
 
-            TwoPhaseCommit prepare = new TwoPhaseCommit(newTweet);
+            TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet);
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
@@ -58,7 +58,8 @@ public class Twitter {
             System.out.println("subscribeTopics");
             SubscribeTopics st = serializer.decode(b);
 
-            TwoPhaseCommit prepare = new TwoPhaseCommit(st.getUsername(), st.getTopics());
+            TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
+                    st.getTopics());
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
@@ -121,7 +122,8 @@ public class Twitter {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, ServerLog.Status.COMMITED);
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, ServerLog.Status.COMMITED,
+                    Address.from(a.host(), a.port()));
             for (TwoPhaseCommit tpc : tpcsToApply) {
                 if (tpc.getTweet() != null)
                     dbHandler.addTweet(tpc.getTweet());
@@ -134,7 +136,25 @@ public class Twitter {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, ServerLog.Status.ABORTED);
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, ServerLog.Status.ABORTED,
+                    Address.from(a.host(), a.port()));
         }, executor);
+
+        ms.registerHandler("tpcHeartbeat", (a, b) -> {
+            System.out.println("tpcHeartbeat");
+            TwoPhaseCommit heartbeat = serializer.decode(b);
+
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat,
+                    Address.from(a.host(), a.port()));
+            for (TwoPhaseCommit tpc : tpcsToApply) {
+                if (tpc.getTweet() != null)
+                    dbHandler.addTweet(tpc.getTweet());
+                else
+                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            }
+        }, executor);
+
+        Thread ht = new HeartbeatThread(allAddresses, serializer, ms, tpcHandler);
+        ht.start();
     }
 }

@@ -20,6 +20,11 @@ public class DBHandler {
         this.subscriptionsDB = new HashMap<>();
 
         this.initializeDB();
+
+        try {
+            this.tweetsDB.get("t").forEach((t) -> System.out.println(t.getContent()));
+        } catch (Exception e) {
+        }
     }
 
     private void initializeDB() {

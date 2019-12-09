@@ -1,8 +1,10 @@
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.commons.math3.util.Pair;
 
 import io.atomix.storage.journal.Indexed;
 import io.atomix.storage.journal.SegmentedJournal;
@@ -15,10 +17,14 @@ import io.atomix.utils.serializer.SerializerBuilder;
  * TPCHandler
  */
 public class TPCHandler {
+    private enum TPCStatus {
+        ONGOING, COMMITED, ABORTED
+    }
+
     private ArrayList<Address> servers;
 
     private Integer totalOrderCounter;
-    private HashMap<Address, TreeMap<Integer, TwoPhaseCommit>> pendingTransactions;
+    private HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>> pendingTransactions;
 
     // Coordinator
     private SegmentedJournal<CoordinatorLog> coordinatorSJ;
@@ -69,6 +75,17 @@ public class TPCHandler {
     }
 
     /**
+     * @return the totalOrderCounter
+     */
+    public Integer getAndIncrementTotalOrderCounter() {
+        synchronized (this.totalOrderCounter) {
+            int res = this.totalOrderCounter;
+            this.totalOrderCounter++;
+            return res;
+        }
+    }
+
+    /**
      * @param tpc
      * @param status
      * @return true if all servers have confirmed the transaction
@@ -95,34 +112,13 @@ public class TPCHandler {
 
         synchronized (this.ongoingCoordinatorTPC) {
             if (status == CoordinatorLog.Status.STARTED) {
-                synchronized (this.pendingTransactions) {
-                    synchronized (this.totalOrderCounter) {
-                        tpc.setCount(this.totalOrderCounter);
-                        this.pendingTransactions.get(remote).put(this.totalOrderCounter, tpc);
-
-                        this.totalOrderCounter++;
-                    }
-                }
-
                 ongoingCoordinatorTPC.put(log, new AtomicInteger(0));
                 return false;
             } else { // status == (CoordinatorLog.Status.COMMITED || CoordinatorLog.Status.ABORTED)
                 int numAccepted = ongoingCoordinatorTPC.get(log).incrementAndGet();
-                if (numAccepted == this.servers.size())
-                    return true;
-                else
-                    return false;
+                return numAccepted == this.servers.size();
             }
         }
-    }
-
-    /**
-     * @param tpc
-     * @param status
-     * @return the tpc that can be applied next
-     */
-    public ArrayList<TwoPhaseCommit> updateServerLog(TwoPhaseCommit tpc, ServerLog.Status status) {
-        return updateServerLog(tpc, status, null);
     }
 
     /**
@@ -144,7 +140,7 @@ public class TPCHandler {
         if (status == ServerLog.Status.PREPARED) {
             synchronized (this.pendingTransactions) {
                 synchronized (this.totalOrderCounter) {
-                    this.pendingTransactions.get(remote).put(tpc.getCount(), tpc);
+                    this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.ONGOING, tpc));
                     if (tpc.getCount() >= this.totalOrderCounter)
                         this.totalOrderCounter = tpc.getCount() + 1;
                 }
@@ -153,6 +149,11 @@ public class TPCHandler {
             return null;
         } else { // status == (ServerLog.Status.COMMITED || ServerLog.Status.ABORTED)
             synchronized (this.pendingTransactions) {
+                if (status == ServerLog.Status.COMMITED)
+                    this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.COMMITED, tpc));
+                else
+                    this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.ABORTED, tpc));
+
                 ArrayList<TwoPhaseCommit> tpcsToApply = new ArrayList<>();
                 while (true) {
                     // Find the message with the lower count or stop if there isn't at least one
@@ -160,7 +161,7 @@ public class TPCHandler {
                     int sCount = Integer.MAX_VALUE;
                     Address sAddress = new Address("255.255.255.255", 65535);
                     for (Address a : this.pendingTransactions.keySet()) {
-                        TreeMap<Integer, TwoPhaseCommit> pt = this.pendingTransactions.get(a);
+                        TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>> pt = this.pendingTransactions.get(a);
                         if (pt.size() == 0)
                             return tpcsToApply;
 
@@ -173,10 +174,74 @@ public class TPCHandler {
                         }
                     }
 
-                    // Remove the tpc from the map
-                    TwoPhaseCommit toProcess = this.pendingTransactions.get(sAddress).pollFirstEntry().getValue();
-                    tpcsToApply.add(toProcess);
+                    // Check if the smallest transaction is still being processed or is an heartbeat
+                    Map.Entry<Integer, Pair<TPCStatus, TwoPhaseCommit>> toProcess = this.pendingTransactions
+                            .get(sAddress).pollFirstEntry();
+                    Pair<TPCStatus, TwoPhaseCommit> tpcToProcess = toProcess.getValue();
+                    if (tpcToProcess.getSecond().isHeartbeat())
+                        continue;
+
+                    if (tpcToProcess.getFirst() == TPCStatus.ONGOING) {
+                        this.pendingTransactions.get(sAddress).put(toProcess.getKey(), tpcToProcess);
+                        return tpcsToApply;
+                    }
+
+                    if (tpcToProcess.getFirst() == TPCStatus.COMMITED)
+                        tpcsToApply.add(tpcToProcess.getSecond());
                 }
+            }
+        }
+    }
+
+    /**
+     * @param tpc
+     * @param status
+     * @param remote
+     * @return the tpc that can be applied next
+     */
+    public ArrayList<TwoPhaseCommit> processHeartbeat(TwoPhaseCommit heartbeat, Address remote) {
+        synchronized (this.pendingTransactions) {
+            synchronized (this.totalOrderCounter) {
+                this.pendingTransactions.get(remote).put(heartbeat.getCount(),
+                        new Pair<>(TPCStatus.ONGOING, heartbeat));
+                if (heartbeat.getCount() >= this.totalOrderCounter)
+                    this.totalOrderCounter = heartbeat.getCount() + 1;
+            }
+
+            ArrayList<TwoPhaseCommit> tpcsToApply = new ArrayList<>();
+            while (true) {
+                // Find the message with the lower count or stop if there isn't at least one
+                // from each server
+                int sCount = Integer.MAX_VALUE;
+                Address sAddress = new Address("255.255.255.255", 65535);
+                for (Address a : this.pendingTransactions.keySet()) {
+                    TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>> pt = this.pendingTransactions.get(a);
+                    if (pt.size() == 0)
+                        return tpcsToApply;
+
+                    if (pt.firstKey() < sCount) {
+                        sCount = pt.firstKey();
+                        sAddress = a;
+                    } else if (pt.firstKey() == sCount) {
+                        if (a.toString().compareTo(sAddress.toString()) < 0)
+                            sAddress = a;
+                    }
+                }
+
+                // Check if the smallest transaction is still being processed
+                Map.Entry<Integer, Pair<TPCStatus, TwoPhaseCommit>> toProcess = this.pendingTransactions.get(sAddress)
+                        .pollFirstEntry();
+                Pair<TPCStatus, TwoPhaseCommit> tpcToProcess = toProcess.getValue();
+                if (tpcToProcess.getSecond().isHeartbeat())
+                    continue;
+
+                if (tpcToProcess.getFirst() == TPCStatus.ONGOING) {
+                    this.pendingTransactions.get(sAddress).put(toProcess.getKey(), tpcToProcess);
+                    return tpcsToApply;
+                }
+
+                if (tpcToProcess.getFirst() == TPCStatus.COMMITED)
+                    tpcsToApply.add(tpcToProcess.getSecond());
             }
         }
     }

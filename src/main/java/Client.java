@@ -31,10 +31,13 @@ public class Client {
         Random random = new Random();
         for (int i = 0; i < 10; i++) {
             ArrayList<String> topics = new ArrayList<>();
-            topics.add("#f" + random.nextInt());
-            topics.add("#t" + random.nextInt());
-            Tweet t = new Tweet("User", String.valueOf(random.nextInt()), topics);
+            topics.add("t");
+            Tweet t = new Tweet("User", String.valueOf(i), topics);
             ms.sendAsync(servers.get(random.nextInt(servers.size())), "publishTweet", tweetSerializer.encode(t));
+            try {
+                Thread.sleep(100);
+            } catch (Exception e) {
+            }
         }
     }
 }

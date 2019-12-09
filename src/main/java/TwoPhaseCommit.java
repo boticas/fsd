@@ -5,6 +5,7 @@ import java.util.ArrayList;
  */
 public class TwoPhaseCommit {
     private int count;
+    private boolean isHeartbeat;
 
     // Either tweet or username/topics are set; the others must be null
     private Tweet tweet;
@@ -12,17 +13,31 @@ public class TwoPhaseCommit {
     private String username;
     private ArrayList<String> topics;
 
-    public TwoPhaseCommit(Tweet tweet) {
+    public TwoPhaseCommit(int count) {
+        this.count = count;
+        this.isHeartbeat = true;
+    }
+
+    public TwoPhaseCommit(int count, Tweet tweet) {
+        this.count = count;
         this.tweet = tweet;
     }
 
-    public TwoPhaseCommit(String username, ArrayList<String> topics) {
+    public TwoPhaseCommit(int count, String username, ArrayList<String> topics) {
+        this.count = count;
         this.username = username;
         ArrayList<String> aux = new ArrayList<String>(topics.size());
         for (String t : topics) {
             aux.add(t);
         }
         this.topics = aux;
+    }
+
+    /**
+     * @return if it is an heartbeat
+     */
+    public boolean isHeartbeat() {
+        return this.isHeartbeat;
     }
 
     /**
