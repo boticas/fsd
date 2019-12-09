@@ -27,7 +27,7 @@
             <artifactId>atomix-cluster</artifactId>
             <version>3.1.5</version>
         </dependency>
-	<dependency>
+	    <dependency>
             <groupId>io.atomix</groupId>
             <artifactId>atomix-storage</artifactId>
             <version>3.0.11</version>
