@@ -28,12 +28,11 @@ public class Client {
 
         Serializer tweetSerializer = new SerializerBuilder().addType(Tweet.class).build();
 
-        Random random = new Random();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 25; i++) {
             ArrayList<String> topics = new ArrayList<>();
-            topics.add("t");
+            topics.add("t" + myAddress.port());
             Tweet t = new Tweet("User", String.valueOf(i), topics);
-            ms.sendAsync(servers.get(random.nextInt(servers.size())), "publishTweet", tweetSerializer.encode(t));
+            ms.sendAsync(servers.get(myAddress.port() % servers.size()), "publishTweet", tweetSerializer.encode(t));
             try {
                 Thread.sleep(100);
             } catch (Exception e) {
