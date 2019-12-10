@@ -6,11 +6,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.math3.util.Pair;
 
+import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.storage.journal.Indexed;
 import io.atomix.storage.journal.SegmentedJournal;
 import io.atomix.storage.journal.SegmentedJournalReader;
 import io.atomix.storage.journal.SegmentedJournalWriter;
 import io.atomix.utils.net.Address;
+import io.atomix.utils.serializer.Serializer;
 import io.atomix.utils.serializer.SerializerBuilder;
 
 /**
@@ -20,6 +22,9 @@ public class TPCHandler {
     private enum TPCStatus {
         ONGOING, COMMITED, ABORTED
     }
+
+    private Serializer serializer;
+    private ManagedMessagingService ms;
 
     private ArrayList<Address> servers;
 
@@ -35,8 +40,10 @@ public class TPCHandler {
     private SegmentedJournal<ServerLog> serverSJ;
     private SegmentedJournalWriter<ServerLog> serverSJW;
 
-    public TPCHandler(ArrayList<Address> servers, int port) {
+    public TPCHandler(ArrayList<Address> servers, int port, Serializer serializer, ManagedMessagingService ms) {
         this.servers = servers;
+        this.serializer = serializer;
+        this.ms = ms;
 
         this.totalOrderCounter = 0;
         this.pendingTransactions = new HashMap<>();
@@ -160,10 +167,13 @@ public class TPCHandler {
                     // from each server
                     int sCount = Integer.MAX_VALUE;
                     Address sAddress = new Address("255.255.255.255", 65535);
+                    ArrayList<Address> emptyAddresses = new ArrayList<>();
                     for (Address a : this.pendingTransactions.keySet()) {
                         TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>> pt = this.pendingTransactions.get(a);
-                        if (pt.size() == 0)
-                            return tpcsToApply;
+                        if (pt.size() == 0) {
+                            emptyAddresses.add(a);
+                            continue;
+                        }
 
                         if (pt.firstKey() < sCount) {
                             sCount = pt.firstKey();
@@ -172,6 +182,16 @@ public class TPCHandler {
                             if (a.toString().compareTo(sAddress.toString()) < 0)
                                 sAddress = a;
                         }
+                    }
+
+                    if (emptyAddresses.size() == this.servers.size())
+                        return tpcsToApply;
+
+                    if (emptyAddresses.size() > 0) {
+                        for (Address address : emptyAddresses)
+                            this.ms.sendAsync(address, "tpcGetHeartbeat", serializer.encode(null));
+
+                        return tpcsToApply;
                     }
 
                     // Check if the smallest transaction is still being processed or is an heartbeat

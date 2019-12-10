@@ -26,9 +26,6 @@ public class Twitter {
         // Setup the infrastructure related to DB managment
         DBHandler dbHandler = new DBHandler(myAddress.port());
 
-        // Setup the infrastructure related to TPC and respective logs
-        TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port());
-
         // Get the server ready for receiving messages from its peers
         ExecutorService executor = Executors.newFixedThreadPool(1);
 
@@ -39,6 +36,9 @@ public class Twitter {
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
                 .addType(Response.class).addType(TwoPhaseCommit.class).build();
+
+        // Setup the infrastructure related to TPC and respective logs
+        TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port(), serializer, ms);
 
         ms.registerHandler("publishTweet", (a, b) -> {
             System.out.println("publishTweet");
@@ -154,7 +154,10 @@ public class Twitter {
             }
         }, executor);
 
-        Thread ht = new HeartbeatThread(allAddresses, serializer, ms, tpcHandler);
-        ht.start();
+        ms.registerHandler("tpcGetHeartbeat", (a, b) -> {
+            System.out.println("tpcGetHeartbeat");
+            TwoPhaseCommit heartbeat = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter());
+            ms.sendAsync(Address.from(a.host(), a.port()), "tpcHeartbeat", serializer.encode(heartbeat));
+        }, executor);
     }
 }
