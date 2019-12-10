@@ -52,14 +52,15 @@ public class TPCHandler {
 
         this.coordinatorSJ = SegmentedJournal.<CoordinatorLog>builder().withName("coordinatorLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(CoordinatorLog.class).addType(CoordinatorLog.Status.class).build())
+                        .addType(CoordinatorLog.class).addType(CoordinatorLog.Status.class).addType(Address.class)
+                        .build())
                 .build();
         this.coordinatorSJW = coordinatorSJ.writer();
         this.ongoingCoordinatorTPC = new HashMap<>();
 
         this.serverSJ = SegmentedJournal.<ServerLog>builder().withName("serverLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(ServerLog.class).addType(ServerLog.Status.class).build())
+                        .addType(ServerLog.class).addType(ServerLog.Status.class).addType(Address.class).build())
                 .build();
         this.serverSJW = serverSJ.writer();
 

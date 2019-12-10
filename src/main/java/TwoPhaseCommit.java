@@ -1,29 +1,35 @@
 import java.util.ArrayList;
 
+import io.atomix.utils.net.Address;
+
 /**
  * TwoPhaseCommit
  */
 public class TwoPhaseCommit {
     private int count;
     private boolean isHeartbeat;
+    private Address coordinator;
 
     // Either tweet or username/topics are set; the others must be null
     private Tweet tweet;
 
     private String username;
     private ArrayList<String> topics;
+    ///
 
-    public TwoPhaseCommit(int count) {
+    public TwoPhaseCommit(int count, Address coordinator) {
         this.count = count;
         this.isHeartbeat = true;
+        this.coordinator = coordinator;
     }
 
-    public TwoPhaseCommit(int count, Tweet tweet) {
+    public TwoPhaseCommit(int count, Tweet tweet, Address coordinator) {
         this.count = count;
         this.tweet = tweet;
+        this.coordinator = coordinator;
     }
 
-    public TwoPhaseCommit(int count, String username, ArrayList<String> topics) {
+    public TwoPhaseCommit(int count, String username, ArrayList<String> topics, Address coordinator) {
         this.count = count;
         this.username = username;
         ArrayList<String> aux = new ArrayList<String>(topics.size());
@@ -31,6 +37,7 @@ public class TwoPhaseCommit {
             aux.add(t);
         }
         this.topics = aux;
+        this.coordinator = coordinator;
     }
 
     /**
@@ -73,10 +80,10 @@ public class TwoPhaseCommit {
     }
 
     /**
-     * @param count the count to set
+     * @return the coordinator
      */
-    public void setCount(int count) {
-        this.count = count;
+    public Address getCoordinator() {
+        return coordinator;
     }
 
     @Override
@@ -88,7 +95,7 @@ public class TwoPhaseCommit {
             return false;
 
         TwoPhaseCommit tpc = (TwoPhaseCommit) obj;
-        if (this.count != tpc.count)
+        if (this.count != tpc.count || this.isHeartbeat != tpc.isHeartbeat || !this.coordinator.equals(tpc.coordinator))
             return false;
 
         if (this.tweet != null)

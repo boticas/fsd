@@ -35,7 +35,7 @@ public class Twitter {
         // Serializer for all the messages
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
-                .addType(Response.class).addType(TwoPhaseCommit.class).build();
+                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
 
         // Setup the infrastructure related to TPC and respective logs
         TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port(), serializer, ms);
@@ -45,13 +45,13 @@ public class Twitter {
             Tweet newTweet = serializer.decode(b);
             newTweet.orderTopics();
 
-            TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet);
+            TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
+                    myAddress);
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
-            for (Address address : allAddresses) {
+            for (Address address : allAddresses)
                 ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
-            }
         }, executor);
 
         ms.registerHandler("subscribeTopics", (a, b) -> {
@@ -59,13 +59,12 @@ public class Twitter {
             SubscribeTopics st = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
-                    st.getTopics());
+                    st.getTopics(), myAddress);
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
-            for (Address address : allAddresses) {
+            for (Address address : allAddresses)
                 ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
-            }
         }, executor);
 
         ms.registerHandler("getTweets", (a, b) -> {
@@ -156,7 +155,7 @@ public class Twitter {
 
         ms.registerHandler("tpcGetHeartbeat", (a, b) -> {
             System.out.println("tpcGetHeartbeat");
-            TwoPhaseCommit heartbeat = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter());
+            TwoPhaseCommit heartbeat = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), myAddress);
             ms.sendAsync(Address.from(a.host(), a.port()), "tpcHeartbeat", serializer.encode(heartbeat));
         }, executor);
     }

@@ -21,13 +21,12 @@ public class DBHandler {
 
         this.initializeDB();
 
-        try {
-            this.tweetsDB.forEach((k, v) -> {
-                System.out.println("--- " + k + " ---");
-                v.forEach((t) -> System.out.println(t.getContent()));
-            });
-        } catch (Exception e) {
-        }
+        // REMOVER
+        this.tweetsDB.forEach((k, v) -> {
+            System.out.println("--- " + k + " ---");
+            v.forEach((t) -> System.out.println(t.getContent()));
+        });
+        ///
     }
 
     private void initializeDB() {
