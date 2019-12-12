@@ -14,6 +14,11 @@ public class DBHandler {
     private HashMap<String, ArrayList<Tweet>> tweetsDB;
     private HashMap<String, ArrayList<String>> subscriptionsDB;
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param port
+     */
     public DBHandler(int port) {
         this.port = port;
         this.tweetsDB = new HashMap<>();
@@ -21,14 +26,19 @@ public class DBHandler {
 
         this.initializeDB();
 
-        // REMOVER
+        /* REMOVER */
         this.tweetsDB.forEach((k, v) -> {
             System.out.println("--- " + k + " ---");
             v.forEach((t) -> System.out.println(t.getContent()));
         });
-        ///
     }
 
+    /**
+     * Method that initializes the database.
+     * 
+     * @param
+     * @return
+     */
     private void initializeDB() {
         try {
             FileInputStream fi = new FileInputStream("db-" + this.port + ".data");
@@ -46,6 +56,12 @@ public class DBHandler {
         }
     }
 
+    /**
+     * Method that saves the database.
+     * 
+     * @param
+     * @return
+     */
     public void saveDB() {
         try {
             FileOutputStream f = new FileOutputStream("db-" + this.port + ".data");
@@ -61,6 +77,12 @@ public class DBHandler {
         }
     }
 
+    /**
+     * Method that adds a tweet to the database and then saves it.
+     * 
+     * @param tweet
+     * @return
+     */
     public void addTweet(Tweet tweet) {
         synchronized (this.tweetsDB) {
             ArrayList<String> topics = tweet.getTopics();
@@ -76,6 +98,11 @@ public class DBHandler {
         }
     }
 
+    /**
+     * 
+     * @param username
+     * @param topics
+     */
     public void updateSubscriptions(String username, ArrayList<String> topics) {
         // Update user's subscription to be equal to topics
     }

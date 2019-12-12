@@ -10,33 +10,51 @@ public class CoordinatorLog {
     private Status status;
 
     /**
-     * @return the tpc
+     * Get - tpc.
+     * 
+     * @param
+     * @return tpc
      */
     public TwoPhaseCommit getTpc() {
         return tpc;
     }
 
     /**
-     * @return the status
+     * Get - status.
+     * 
+     * @param
+     * @return status
      */
     public Status getStatus() {
         return status;
     }
 
     /**
-     * @param tpc the tpc to set
+     * Set - tpc.
+     * 
+     * @param tpc
+     * @return
      */
     public void setTpc(TwoPhaseCommit tpc) {
         this.tpc = tpc;
     }
 
     /**
-     * @param status the status to set
+     * Set - status.
+     * 
+     * @param status
+     * @return
      */
     public void setStatus(Status status) {
         this.status = status;
     }
 
+    /**
+     * Method hashCode.
+     * 
+     * @param
+     * @return int
+     */
     @Override
     public int hashCode() {
         if (this.tpc.getTweet() != null)
@@ -45,6 +63,12 @@ public class CoordinatorLog {
             return (int) this.tpc.getUsername().charAt(0);
     }
 
+    /**
+     * Method equals.
+     * 
+     * @param obj
+     * @return boolean
+     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this)

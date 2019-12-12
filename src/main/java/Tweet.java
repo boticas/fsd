@@ -11,55 +11,79 @@ public class Tweet implements Serializable {
     private String content;
     private ArrayList<String> topics;
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param username
+     * @param content
+     * @param topics
+     */
     public Tweet(String username, String content, ArrayList<String> topics) {
         this.username = username;
         this.content = content;
         ArrayList<String> aux = new ArrayList<String>(topics.size());
-        for (String t : topics) {
-            aux.add(t);
-        }
+        topics.forEach((t) -> aux.add(t));
         this.topics = aux;
     }
 
     /**
-     * @return the username
+     * Get - username.
+     * 
+     * @param
+     * @return username
      */
     public String getUsername() {
         return username;
     }
 
     /**
-     * @return the content
+     * Get - content.
+     * 
+     * @param
+     * @return content
      */
     public String getContent() {
         return content;
     }
 
     /**
-     * @return the topics
+     * Get - topics.
+     * 
+     * @param
+     * @return topics
      */
     public ArrayList<String> getTopics() {
         ArrayList<String> res = new ArrayList<String>(this.topics.size());
-        for (String t : topics) {
-            res.add(t);
-        }
+        this.topics.forEach((t) -> res.add(t));
         return res;
     }
 
     /**
-     * @return if the current tweet belongs to a certain topic
+     * Method that checks if the current tweet belongs to a certain topic.
+     * 
+     * @param topic
+     * @return boolean
      */
     public boolean hasTopic(String topic) {
         return this.topics.contains(topic);
     }
 
     /**
-     * order the topics in ascending order
+     * Method that return the topics in ascending order.
+     * 
+     * @param
+     * @return ordered topics
      */
     public void orderTopics() {
         this.topics.sort((s1, s2) -> s1.compareTo(s2));
     }
 
+    /**
+     * Method equals.
+     * 
+     * @param obj
+     * @return boolean
+     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this)

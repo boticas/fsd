@@ -4,12 +4,20 @@
 public class Response {
     private boolean success;
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param success
+     */
     public Response(boolean success) {
         this.success = success;
     }
 
     /**
-     * @return the success status
+     * Get - success.
+     * 
+     * @param
+     * @return success status
      */
     public boolean getSuccess() {
         return this.success;

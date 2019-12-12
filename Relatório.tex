@@ -1,0 +1,81 @@
+% Setup -------------------------------
+
+\documentclass[a4paper]{report}
+\usepackage[a4paper, total={6in, 10in}]{geometry}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% Encoding
+%--------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+%--------------------------------------
+
+% Portuguese-specific commands
+%--------------------------------------
+\usepackage[portuguese]{babel}
+%--------------------------------------
+
+% Hyphenation rules
+%--------------------------------------
+\usepackage{hyphenat}
+%--------------------------------------
+
+% Capa do relatório
+
+\title{
+	Fundamentos de Sistemas Distribuídos
+	\\ \Large{\textbf{Trabalho Prático}}
+	\\ -
+	\\ Mestrado em Engenharia Informática
+	\\ \large{Universidade do Minho}
+	\\ Relatório
+}
+\author{
+	\begin{tabular}{ll}
+		\textbf{Grupo}
+		\\\hline
+		PG41080 & João Ribeiro Imperadeiro
+		\\
+		PG41081 & José Alberto Martins Boticas
+		\\
+		PG41091 & Nelson José Dias Teixeira
+		\\
+		PG41096 & Ricardo Jorge Valadares Machado Carneiro Vieira
+	\end{tabular}
+}
+
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+    \maketitle
+\end{titlepage}
+
+% Resumo
+
+\begin{abstract}
+	Este trabalho prático tem por base uma implementação de um sistema de troca de mensagens com persistência e ordenação. Para tal, à semelhança do que feito durante as aulas, foi utilizada a linguagem \textit{Java} (que é orientada aos objetos) por forma a tomar partido de algumas classes já existentes para este tipo de problemas, como por exemplo a classe \textit{Atomix}. De forma geral, o sistema pretendido pode ser descrito como semelhante ao \textit{Twitter} com alguns requisitos extra de correção.
+\end{abstract}
+
+% Índice
+
+\tableofcontents
+
+% Introdução
+
+\chapter{Introdução} \label{intro}
+\large{
+}
+
+\chapter{Análise e Especificação}
+    \section{Requisitos}
+
+\chapter{Conclusão}
+
+\appendix
+\chapter{Observações}
+
+
+\end{document}

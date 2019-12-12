@@ -10,82 +10,122 @@ public class TwoPhaseCommit {
     private boolean isHeartbeat;
     private Address coordinator;
 
-    // Either tweet or username/topics are set; the others must be null
+    /* Either tweet or username/topics are set; the others must be null */
     private Tweet tweet;
 
     private String username;
     private ArrayList<String> topics;
-    ///
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param count
+     * @param coordinator
+     */
     public TwoPhaseCommit(int count, Address coordinator) {
         this.count = count;
         this.isHeartbeat = true;
         this.coordinator = coordinator;
     }
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param count
+     * @param tweet
+     * @param coordinator
+     */
     public TwoPhaseCommit(int count, Tweet tweet, Address coordinator) {
         this.count = count;
         this.tweet = tweet;
         this.coordinator = coordinator;
     }
 
+    /**
+     * Parameterized class builder.
+     * 
+     * @param count
+     * @param username
+     * @param topics
+     * @param coordinator
+     */
     public TwoPhaseCommit(int count, String username, ArrayList<String> topics, Address coordinator) {
         this.count = count;
         this.username = username;
         ArrayList<String> aux = new ArrayList<String>(topics.size());
-        for (String t : topics) {
-            aux.add(t);
-        }
+        topics.forEach((t) -> aux.add(t));
         this.topics = aux;
         this.coordinator = coordinator;
     }
 
     /**
-     * @return if it is an heartbeat
+     * Get - isHeartbeat.
+     * 
+     * @param
+     * @return isHeartbeat
      */
     public boolean isHeartbeat() {
         return this.isHeartbeat;
     }
 
     /**
-     * @return the count
+     * Get - count.
+     * 
+     * @param
+     * @return count
      */
     public int getCount() {
         return count;
     }
 
     /**
-     * @return the username
+     * Get - username.
+     * 
+     * @param
+     * @return username
      */
     public String getUsername() {
         return username;
     }
 
     /**
-     * @return the tweet
+     * Get - tweet.
+     * 
+     * @param
+     * @return tweet
      */
     public Tweet getTweet() {
         return tweet;
     }
 
     /**
-     * @return the topics
+     * Get - topics.
+     * 
+     * @param
+     * @return topics
      */
     public ArrayList<String> getTopics() {
         ArrayList<String> res = new ArrayList<String>(this.topics.size());
-        for (String t : topics) {
-            res.add(t);
-        }
+        this.topics.forEach((t) -> res.add(t));
         return res;
     }
 
     /**
-     * @return the coordinator
+     * Get - coordinator.
+     * 
+     * @param
+     * @return coordinator
      */
     public Address getCoordinator() {
         return coordinator;
     }
 
+    /**
+     * Method equals.
+     * 
+     * @param obj
+     * @return boolean
+     */
     @Override
     public boolean equals(Object obj) {
         if (obj == this)
