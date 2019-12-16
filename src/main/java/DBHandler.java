@@ -106,7 +106,10 @@ public class DBHandler {
      * @param topics
      */
     public void updateSubscriptions(String username, ArrayList<String> topics) {
-        // Update user's subscription to be equal to topics
+        synchronized (this.subscriptionsDB) {
+            subscriptionsDB.put(username, topics);
+            this.saveDB();
+        }
     }
 
     /**
