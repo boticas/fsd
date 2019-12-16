@@ -118,4 +118,44 @@ public class DBHandler {
             this.saveDB();
         }
     }
+
+    /**
+     * Get the last 10 tweets from the topics subscribed by the username.
+     * 
+     * @param username
+     * @param topic
+     * @return The last 10 tweets.
+     */
+    public ArrayList<Tweet> getLast10Tweets(String username, ArrayList<String> topics) {
+        return new ArrayList<>();
+    }
+
+    /**
+     * Get the last 10 tweets per topic subscribed by the username.
+     * 
+     * @param username
+     * @param topic
+     * @return The last 10 tweets per topic.
+     */
+    public ArrayList<Tweet> getLast10TweetsPerTopic(String username, ArrayList<String> topics) {
+        ArrayList<Tweet> last10PerTopic = new ArrayList<>();
+
+        ArrayList<String> subscriptions;
+        synchronized (this.subscriptionsDB) {
+            subscriptions = this.subscriptionsDB.get(username);
+        }
+        synchronized (this.tweetsDB) {
+            for (String topic : topics) {
+                if (subscriptions.contains(topic)) {
+                    ArrayList<Tweet> tweets = this.tweetsDB.get(topic);
+                    int size = tweets.size();
+                    for (int i = size - 1; i >= size - 10 && i >= 0; i--) {
+                        last10PerTopic.add(tweets.get(i));
+                    }
+                }
+            }
+        }
+
+        return last10PerTopic;
+    }
 }
