@@ -1,8 +1,8 @@
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.math3.util.Pair;
 
@@ -34,7 +34,7 @@ public class TPCHandler {
     // Coordinator
     private SegmentedJournal<CoordinatorLog> coordinatorSJ;
     private SegmentedJournalWriter<CoordinatorLog> coordinatorSJW;
-    private HashMap<CoordinatorLog, AtomicInteger> ongoingCoordinatorTPC;
+    private HashMap<CoordinatorLog, HashSet<Address>> ongoingCoordinatorTPC;
 
     // Server
     private SegmentedJournal<ServerLog> serverSJ;
@@ -120,11 +120,12 @@ public class TPCHandler {
 
         synchronized (this.ongoingCoordinatorTPC) {
             if (status == CoordinatorLog.Status.STARTED) {
-                ongoingCoordinatorTPC.put(log, new AtomicInteger(0));
+                ongoingCoordinatorTPC.put(log, new HashSet<>(this.servers.size()));
                 return false;
             } else { // status == (CoordinatorLog.Status.COMMITED || CoordinatorLog.Status.ABORTED)
-                int numAccepted = ongoingCoordinatorTPC.get(log).incrementAndGet();
-                return numAccepted == this.servers.size();
+                HashSet<Address> accepted = ongoingCoordinatorTPC.get(log);
+                accepted.add(remote);
+                return accepted.size() == this.servers.size();
             }
         }
     }
