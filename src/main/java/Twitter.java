@@ -46,7 +46,7 @@ public class Twitter {
             newTweet.orderTopics();
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
-                    myAddress);
+                    myAddress, Address.from(a.host(), a.port()));
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
@@ -59,7 +59,7 @@ public class Twitter {
             SubscribeTopics st = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
-                    st.getTopics(), myAddress);
+                    st.getTopics(), myAddress, Address.from(a.host(), a.port()));
 
             tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
 
@@ -74,8 +74,10 @@ public class Twitter {
             ArrayList<String> topics = gt.getTopics();
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
+                dbHandler.getLast10Tweets(username, topics);
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
+                dbHandler.getLast10TweetsPerTopic(username, topics);
             }
         }, executor);
 
@@ -103,6 +105,8 @@ public class Twitter {
             if (allAccepted) {
                 for (Address address : allAddresses)
                     ms.sendAsync(address, "tpcCommit", serializer.encode(response));
+                Response result = new Response(true);
+                ms.sendAsync(response.getRequester(), "result", serializer.encode(result));
             }
         }, executor);
 
@@ -115,6 +119,8 @@ public class Twitter {
             for (Address address : allAddresses) {
                 ms.sendAsync(address, "tpcRollback", serializer.encode(response));
             }
+            Response result = new Response(false);
+            ms.sendAsync(response.getRequester(), "result", serializer.encode(result));
         }, executor);
 
         ms.registerHandler("tpcCommit", (a, b) -> {

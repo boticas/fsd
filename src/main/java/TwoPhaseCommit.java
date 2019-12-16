@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 
 import io.atomix.utils.net.Address;
+import org.apache.commons.math3.analysis.function.Add;
 
 /**
  * TwoPhaseCommit
@@ -9,6 +10,7 @@ public class TwoPhaseCommit {
     private int count;
     private boolean isHeartbeat;
     private Address coordinator;
+    private Address requester;
 
     /* Either tweet or username/topics are set; the others must be null */
     private Tweet tweet;
@@ -35,10 +37,11 @@ public class TwoPhaseCommit {
      * @param tweet
      * @param coordinator
      */
-    public TwoPhaseCommit(int count, Tweet tweet, Address coordinator) {
+    public TwoPhaseCommit(int count, Tweet tweet, Address coordinator, Address requester) {
         this.count = count;
         this.tweet = tweet;
         this.coordinator = coordinator;
+        this.requester = requester;
     }
 
     /**
@@ -49,13 +52,14 @@ public class TwoPhaseCommit {
      * @param topics
      * @param coordinator
      */
-    public TwoPhaseCommit(int count, String username, ArrayList<String> topics, Address coordinator) {
+    public TwoPhaseCommit(int count, String username, ArrayList<String> topics, Address coordinator, Address requester) {
         this.count = count;
         this.username = username;
         ArrayList<String> aux = new ArrayList<String>(topics.size());
         topics.forEach((t) -> aux.add(t));
         this.topics = aux;
         this.coordinator = coordinator;
+        this.requester = requester;
     }
 
     /**
@@ -120,6 +124,10 @@ public class TwoPhaseCommit {
         return coordinator;
     }
 
+    public Address getRequester() {
+        return requester;
+    }
+
     /**
      * Method equals.
      * 
@@ -135,7 +143,7 @@ public class TwoPhaseCommit {
             return false;
 
         TwoPhaseCommit tpc = (TwoPhaseCommit) obj;
-        if (this.count != tpc.count || this.isHeartbeat != tpc.isHeartbeat || !this.coordinator.equals(tpc.coordinator))
+        if (this.count != tpc.count || this.isHeartbeat != tpc.isHeartbeat || !this.coordinator.equals(tpc.coordinator) || !this.requester.equals(tpc.requester))
             return false;
 
         if (this.tweet != null)

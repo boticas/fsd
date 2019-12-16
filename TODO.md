@@ -2,3 +2,4 @@
 	- [ ] Interface
 - Smaller issues
 	- [ ] Answer clients' requests
+	- [ ] Try to do a server controller

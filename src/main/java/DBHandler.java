@@ -11,8 +11,9 @@ import java.util.HashMap;
  */
 public class DBHandler {
     private int port;
-    private HashMap<String, ArrayList<Tweet>> tweetsDB;
-    private HashMap<String, ArrayList<String>> subscriptionsDB;
+    private ArrayList<Tweet> allTweets;
+    private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para tweets desse tópico
+    private HashMap<String, ArrayList<String>> subscriptionsDB; // username para tópicos subscritos
 
     /**
      * Parameterized class builder.
@@ -29,7 +30,7 @@ public class DBHandler {
         /* REMOVER */
         this.tweetsDB.forEach((k, v) -> {
             System.out.println("--- " + k + " ---");
-            v.forEach((t) -> System.out.println(t.getContent()));
+            v.forEach((t) -> System.out.println(this.allTweets.get(t).getContent()));
         });
     }
 
@@ -44,7 +45,8 @@ public class DBHandler {
             FileInputStream fi = new FileInputStream("db-" + this.port + ".data");
             ObjectInputStream oi = new ObjectInputStream(fi);
 
-            this.tweetsDB = (HashMap<String, ArrayList<Tweet>>) oi.readObject();
+            this.allTweets = (ArrayList<Tweet>) oi.readObject();
+            this.tweetsDB = (HashMap<String, ArrayList<Integer>>) oi.readObject();
             this.subscriptionsDB = (HashMap<String, ArrayList<String>>) oi.readObject();
 
             oi.close();
@@ -67,6 +69,7 @@ public class DBHandler {
             FileOutputStream f = new FileOutputStream("db-" + this.port + ".data");
             ObjectOutputStream o = new ObjectOutputStream(f);
 
+            o.writeObject(this.allTweets);
             o.writeObject(this.tweetsDB);
             o.writeObject(this.subscriptionsDB);
 
@@ -84,15 +87,21 @@ public class DBHandler {
      * @return
      */
     public void addTweet(Tweet tweet) {
+        int idx;
+        synchronized (this.allTweets) {
+            this.allTweets.add(tweet);
+            idx = this.allTweets.size() - 1;
+        }
+
         synchronized (this.tweetsDB) {
             ArrayList<String> topics = tweet.getTopics();
             for (String topic : topics) {
-                ArrayList<Tweet> tweets = this.tweetsDB.get(topic);
+                ArrayList<Integer> tweets = this.tweetsDB.get(topic);
                 if (tweets == null) {
                     tweets = new ArrayList<>();
                     this.tweetsDB.put(topic, tweets);
                 }
-                tweets.add(tweet);
+                tweets.add(idx);
             }
             this.saveDB();
         }
@@ -104,6 +113,49 @@ public class DBHandler {
      * @param topics
      */
     public void updateSubscriptions(String username, ArrayList<String> topics) {
-        // Update user's subscription to be equal to topics
+        synchronized (this.subscriptionsDB) {
+            subscriptionsDB.put(username, topics);
+            this.saveDB();
+        }
+    }
+
+    /**
+     * Get the last 10 tweets from the topics subscribed by the username.
+     * 
+     * @param username
+     * @param topic
+     * @return The last 10 tweets.
+     */
+    public ArrayList<Tweet> getLast10Tweets(String username, ArrayList<String> topics) {
+        return new ArrayList<>();
+    }
+
+    /**
+     * Get the last 10 tweets per topic subscribed by the username.
+     * 
+     * @param username
+     * @param topic
+     * @return The last 10 tweets per topic.
+     */
+    public ArrayList<Tweet> getLast10TweetsPerTopic(String username, ArrayList<String> topics) {
+        ArrayList<Tweet> last10PerTopic = new ArrayList<>();
+
+        ArrayList<String> subscriptions;
+        synchronized (this.subscriptionsDB) {
+            subscriptions = this.subscriptionsDB.get(username);
+        }
+        synchronized (this.tweetsDB) {
+            for (String topic : topics) {
+                if (subscriptions.contains(topic)) {
+                    ArrayList<Tweet> tweets = this.tweetsDB.get(topic);
+                    int size = tweets.size();
+                    for (int i = size - 1; i >= size - 10 && i >= 0; i--) {
+                        last10PerTopic.add(tweets.get(i));
+                    }
+                }
+            }
+        }
+
+        return last10PerTopic;
     }
 }
