@@ -74,10 +74,12 @@ public class Twitter {
             ArrayList<String> topics = gt.getTopics();
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
-                dbHandler.getLast10Tweets(username, topics);
+                ArrayList<Tweet> last10Tweets = dbHandler.getLast10Tweets(username, topics);
+                /* SEND TO CLIENT */
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
-                dbHandler.getLast10TweetsPerTopic(username, topics);
+                ArrayList<Tweet> last10TweetsPerTopic = dbHandler.getLast10TweetsPerTopic(username, topics);
+                /* SEND TO CLIENT */
             }
         }, executor);
 
@@ -86,6 +88,8 @@ public class Twitter {
             GetTopics gt = serializer.decode(b);
             String username = gt.getUsername();
             // Return the topics username is subscribed to
+            ArrayList<String> topics = dbHandler.getTopics(username);
+            /* SEND TO CLIENT */
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {
