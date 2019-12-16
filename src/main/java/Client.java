@@ -33,10 +33,6 @@ public class Client {
             topics.add("t" + myAddress.port());
             Tweet t = new Tweet("User", String.valueOf(i), topics);
             ms.sendAsync(servers.get(myAddress.port() % servers.size()), "publishTweet", tweetSerializer.encode(t));
-            try {
-                Thread.sleep(100);
-            } catch (Exception e) {
-            }
         }
     }
 }
