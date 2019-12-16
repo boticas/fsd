@@ -11,8 +11,8 @@ import java.util.HashMap;
  */
 public class DBHandler {
     private int port;
-    private HashMap<String, ArrayList<Tweet>> tweetsDB;
-    private HashMap<String, ArrayList<String>> subscriptionsDB;
+    private HashMap<String, ArrayList<Tweet>> tweetsDB; // tópicos para tweets desse tópico
+    private HashMap<String, ArrayList<String>> subscriptionsDB; // username para tópicos subscritos
 
     /**
      * Parameterized class builder.
@@ -104,6 +104,9 @@ public class DBHandler {
      * @param topics
      */
     public void updateSubscriptions(String username, ArrayList<String> topics) {
-        // Update user's subscription to be equal to topics
+        synchronized (this.subscriptionsDB) {
+            subscriptionsDB.put(username, topics);
+            this.saveDB();
+        }
     }
 }
