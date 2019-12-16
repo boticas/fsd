@@ -159,4 +159,14 @@ public class DBHandler {
 
         return last10PerTopic;
     }
+
+    /**
+     * Get all the topics subscribed by the username provided.
+     * 
+     * @param username
+     * @return All the topics subscribed
+     */
+    public synchronized ArrayList<String> getTopics(String username) {
+        return this.subscriptionsDB.get(username);
+    }
 }
