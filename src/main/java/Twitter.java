@@ -74,8 +74,10 @@ public class Twitter {
             ArrayList<String> topics = gt.getTopics();
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
+                dbHandler.getLast10Tweets(username, topics);
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
+                dbHandler.getLast10TweetsPerTopic(username, topics);
             }
         }, executor);
 
