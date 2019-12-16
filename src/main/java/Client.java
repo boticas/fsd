@@ -104,7 +104,7 @@ public class Client {
         Address server = Address.from(args[1]);
 
         ExecutorService executor = Executors.newFixedThreadPool(1);
-        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Tweets.class)
+        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
                 .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
 

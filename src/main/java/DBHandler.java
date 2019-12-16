@@ -5,6 +5,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 /**
  * DBHandler
@@ -12,7 +13,7 @@ import java.util.HashMap;
 public class DBHandler {
     private int port;
     private ArrayList<Tweet> allTweets;
-    private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para tweets desse tópico
+    private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para indices de tweets desse tópico
     private HashMap<String, ArrayList<String>> subscriptionsDB; // username para tópicos subscritos
 
     /**
@@ -124,40 +125,67 @@ public class DBHandler {
      * Get the last 10 tweets from the topics subscribed by the username.
      * 
      * @param username
-     * @param topic
      * @return The last 10 tweets.
      */
-    public ArrayList<Tweet> getLast10Tweets(String username, ArrayList<String> topics) {
-        return new ArrayList<>();
+    public ArrayList<Tweet> getLast10Tweets(String username) {
+        ArrayList<Tweet> last10 = new ArrayList<>();
+
+        ArrayList<String> subscriptions;
+        synchronized (this.subscriptionsDB) {
+            subscriptions = this.subscriptionsDB.get(username);
+        }
+
+        synchronized (this.tweetsDB) {
+            synchronized (this.allTweets) {
+                HashSet<Integer> tweets = new HashSet<>();
+                for (String topic : subscriptions) {
+                    tweets.addAll(tweetsDB.get(topic));
+                }
+                int i = 0;
+                for (int latest = allTweets.size() - 1; latest >= 0 && i < 10; latest--) {
+                    if(tweets.contains(latest)) {
+                        last10.add(allTweets.get(latest));
+                        i ++;
+                    }
+                }
+            }
+        }
+        return last10;
     }
 
     /**
      * Get the last 10 tweets per topic subscribed by the username.
      * 
      * @param username
-     * @param topic
+     * @param topics
      * @return The last 10 tweets per topic.
      */
     public ArrayList<Tweet> getLast10TweetsPerTopic(String username, ArrayList<String> topics) {
-        ArrayList<Tweet> last10PerTopic = new ArrayList<>();
+        ArrayList<Tweet> last10 = new ArrayList<>();
 
         ArrayList<String> subscriptions;
         synchronized (this.subscriptionsDB) {
-            subscriptions = this.subscriptionsDB.get(username);
+             subscriptions = this.subscriptionsDB.get(username);
         }
+
         synchronized (this.tweetsDB) {
-            for (String topic : topics) {
-                if (subscriptions.contains(topic)) {
-                    ArrayList<Integer> tweets = this.tweetsDB.get(topic);
-                    int size = tweets.size();
-                    for (int i = size - 1; i >= size - 10 && i >= 0; i--) {
-                        last10PerTopic.add(allTweets.get(tweets.get(i)));
+            synchronized (this.allTweets) {
+                HashSet<Integer> tweets = new HashSet<>();
+                for (String topic : topics) {
+                    if (subscriptions.contains(topic)) {
+                        tweets.addAll(tweetsDB.get(topic));
+                    }
+                }
+                int i = 0;
+                for (int latest = allTweets.size() - 1; latest >= 0 && i < 10; latest--) {
+                    if(tweets.contains(latest)) {
+                        last10.add(allTweets.get(latest));
+                        i ++;
                     }
                 }
             }
         }
-
-        return last10PerTopic;
+        return last10;
     }
 
     /**
@@ -166,7 +194,9 @@ public class DBHandler {
      * @param username
      * @return All the topics subscribed
      */
-    public synchronized ArrayList<String> getTopics(String username) {
-        return this.subscriptionsDB.get(username);
+    public ArrayList<String> getTopics(String username) {
+        synchronized (subscriptionsDB) {
+            return this.subscriptionsDB.get(username);
+        }
     }
 }

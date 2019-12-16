@@ -33,7 +33,7 @@ public class Twitter {
         ms.start();
 
         // Serializer for all the messages
-        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Tweets.class)
+        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
                 .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
 
@@ -74,12 +74,12 @@ public class Twitter {
             ArrayList<String> topics = gt.getTopics();
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
-                ArrayList<Tweet> last10Tweets = dbHandler.getLast10Tweets(username, topics);
-                /* SEND TO CLIENT */
+                Tweets last10all = new Tweets(dbHandler.getLast10Tweets(username));
+                ms.sendAsync(Address.from(a.host(), a.port()), "last10all", serializer.encode(last10all));
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
-                ArrayList<Tweet> last10TweetsPerTopic = dbHandler.getLast10TweetsPerTopic(username, topics);
-                /* SEND TO CLIENT */
+                Tweets last10some = new Tweets(dbHandler.getLast10TweetsPerTopic(username, topics));
+                ms.sendAsync(Address.from(a.host(), a.port()), "last10some", serializer.encode(last10some));
             }
         }, executor);
 
@@ -88,8 +88,8 @@ public class Twitter {
             GetTopics gt = serializer.decode(b);
             String username = gt.getUsername();
             // Return the topics username is subscribed to
-            ArrayList<String> topics = dbHandler.getTopics(username);
-            /* SEND TO CLIENT */
+            Topics topics = new Topics(dbHandler.getTopics(username));
+            ms.sendAsync(Address.from(a.host(), a.port()), "topics", serializer.encode(topics));
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {

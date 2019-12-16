@@ -1,14 +1,11 @@
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 /**
  * Tweets
  */
 public class Tweets {
-    /* nullKey will be set if the HashMap only contains one key (null) */
-    private boolean nullKey;
-    private HashMap<String, ArrayList<Tweet>> tweets;
+    private ArrayList<Tweet> tweets;
 
     /**
      * Parameterized class builder.
@@ -16,30 +13,11 @@ public class Tweets {
      * @param tweets
      */
     public Tweets(ArrayList<Tweet> tweets) {
-        this.nullKey = true;
-        HashMap<String, ArrayList<Tweet>> aux = new HashMap<>();
-        aux.put(null, tweets);
-        this.tweets = aux;
-    }
-
-    /**
-     * Parameterized class builder.
-     * 
-     * @param tweets
-     */
-    public Tweets(HashMap<String, ArrayList<Tweet>> tweets) {
-        this.nullKey = false;
-        this.tweets = tweets;
-    }
-
-    /**
-     * Has only one entry - nullKey.
-     * 
-     * @param
-     * @return true if the map only contains one key (null)
-     */
-    public boolean hasNullKey() {
-        return this.nullKey;
+        ArrayList<Tweet> newTweets = new ArrayList<>(tweets.size());
+        for (Tweet t: tweets) {
+            newTweets.add(t);
+        }
+        this.tweets = newTweets;
     }
 
     /**
@@ -48,10 +26,10 @@ public class Tweets {
      * @param
      * @return tweets
      */
-    public HashMap<String, ArrayList<Tweet>> getTweets() {
-        HashMap<String, ArrayList<Tweet>> res = new HashMap<>(this.tweets.size());
-        for (Map.Entry<String, ArrayList<Tweet>> e : this.tweets.entrySet()) {
-            res.put(e.getKey(), e.getValue());
+    public List<Tweet> getTweets() {
+        ArrayList<Tweet> res = new ArrayList<>(this.tweets.size());
+        for (Tweet t: this.tweets) {
+            res.add(t);
         }
         return res;
     }
