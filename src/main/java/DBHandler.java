@@ -22,6 +22,7 @@ public class DBHandler {
      */
     public DBHandler(int port) {
         this.port = port;
+        this.allTweets = new ArrayList<>();
         this.tweetsDB = new HashMap<>();
         this.subscriptionsDB = new HashMap<>();
 
@@ -147,10 +148,10 @@ public class DBHandler {
         synchronized (this.tweetsDB) {
             for (String topic : topics) {
                 if (subscriptions.contains(topic)) {
-                    ArrayList<Tweet> tweets = this.tweetsDB.get(topic);
+                    ArrayList<Integer> tweets = this.tweetsDB.get(topic);
                     int size = tweets.size();
                     for (int i = size - 1; i >= size - 10 && i >= 0; i--) {
-                        last10PerTopic.add(tweets.get(i));
+                        last10PerTopic.add(allTweets.get(tweets.get(i)));
                     }
                 }
             }
