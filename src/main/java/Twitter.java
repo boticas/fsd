@@ -75,11 +75,11 @@ public class Twitter {
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
                 Tweets last10all = new Tweets(dbHandler.getLast10Tweets(username));
-                ms.sendAsync(Address.from(a.host(), a.port()), "last10all", serializer.encode(last10all));
+                ms.sendAsync(Address.from(a.host(), a.port()), "last10", serializer.encode(last10all));
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
                 Tweets last10some = new Tweets(dbHandler.getLast10TweetsPerTopic(username, topics));
-                ms.sendAsync(Address.from(a.host(), a.port()), "last10some", serializer.encode(last10some));
+                ms.sendAsync(Address.from(a.host(), a.port()), "last10", serializer.encode(last10some));
             }
         }, executor);
 
@@ -89,7 +89,7 @@ public class Twitter {
             String username = gt.getUsername();
             // Return the topics username is subscribed to
             Topics topics = new Topics(dbHandler.getTopics(username));
-            ms.sendAsync(Address.from(a.host(), a.port()), "topics", serializer.encode(topics));
+            ms.sendAsync(Address.from(a.host(), a.port()), "getTopics", serializer.encode(topics));
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {

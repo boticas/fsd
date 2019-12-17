@@ -1,7 +1,7 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -49,12 +49,16 @@ public class Client {
         System.out.flush();
     }
 
-    private static void getTop10() {
-
+    private static void getLast10(ArrayList<Tweet> tweets) {
+        //TODO
     }
 
-    private static SubscribeTopics subscribeTopics() {
-        System.out.println("What topics do you want to subscribe?");
+    private static SubscribeTopics subscribeTopics(Topics currentTopics) {
+        System.out.println("You are currently subscribed to:");
+        for (String t : currentTopics.getTopics()) {
+            System.out.println(t);
+        }
+        System.out.println("What new topics do you want to subscribe?");
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String input = "";
         try {
@@ -63,7 +67,7 @@ public class Client {
             e.printStackTrace();
         }
         String[] topics = input.split(" ");
-        ArrayList<String> topicsList = new ArrayList<String>();
+        ArrayList<String> topicsList = new ArrayList<String>(currentTopics.getTopics());
         for (String word : topics) {
             // Problema: Cortar pontuações nos extremos
             if (word.charAt(0) == '#')
@@ -71,7 +75,7 @@ public class Client {
         }
         SubscribeTopics res = new SubscribeTopics(topicsList, username);
         return res;
-        
+
     }
 
     private static Tweet publishTweet() {
@@ -124,36 +128,52 @@ public class Client {
                 e.printStackTrace();
             }
         }
-        
+
         boolean exit = false;
-        
-        while(!exit) {
+
+        while (!exit) {
             StringBuilder main = new StringBuilder();
             main.append("What do you want to do? (Select number)\n");
             main.append("1 - Tweet\n");
             main.append("2 - Subscribe\n");
-            main.append("3 - Top 10\n");
+            main.append("3 - Last 10\n");
             main.append("4 - Exit\n");
-            
+
             clearView();
             System.out.println(main);
-            
+
             int escolha;
-            do{
+            do {
                 escolha = readInt();
-            }while(escolha < 1 || escolha > 4);
-            
-            switch(escolha) {
+            } while (escolha < 1 || escolha > 4);
+
+            byte[] res = null;
+            switch (escolha) {
                 case 1:
                     Tweet t = publishTweet();
                     ms.sendAsync(server, "publishTweet", serializer.encode(t));
                     break;
                 case 2:
-                    SubscribeTopics topics = subscribeTopics();
+                    try {
+                        // RESOLVER: Espera por uma resposta indefinidamente
+                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username))).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    SubscribeTopics topics = subscribeTopics(serializer.decode(res));
                     ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
                     break;
                 case 3:
-                    getTop10();
+                    try {
+                        res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    getLast10(((Tweets)serializer.decode(res)).getTweets());
                     break;
                 case 4:
                     clearView();
