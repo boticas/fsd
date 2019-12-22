@@ -1,9 +1,9 @@
 /**
- * CoordinatorLog
+ * Log
  */
-public class CoordinatorLog {
+public class Log {
     public enum Status {
-        STARTED, COMMITED, ABORTED
+        PREPARE, COMMIT, ABORT
     }
 
     private TwoPhaseCommit tpc;
@@ -77,7 +77,7 @@ public class CoordinatorLog {
         if (obj == null || this.getClass() != obj.getClass())
             return false;
 
-        CoordinatorLog cl = (CoordinatorLog) obj;
+        Log cl = (Log) obj;
         return this.tpc.equals(cl.tpc); // Ignore the status
     }
 }

@@ -32,13 +32,13 @@ public class TPCHandler {
     private HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>> pendingTransactions;
 
     // Coordinator
-    private SegmentedJournal<CoordinatorLog> coordinatorSJ;
-    private SegmentedJournalWriter<CoordinatorLog> coordinatorSJW;
-    private HashMap<CoordinatorLog, HashSet<Address>> ongoingCoordinatorTPC;
+    private SegmentedJournal<Log> coordinatorSJ;
+    private SegmentedJournalWriter<Log> coordinatorSJW;
+    private HashMap<Log, HashSet<Address>> ongoingCoordinatorTPC;
 
     // Server
-    private SegmentedJournal<ServerLog> serverSJ;
-    private SegmentedJournalWriter<ServerLog> serverSJW;
+    private SegmentedJournal<Log> serverSJ;
+    private SegmentedJournalWriter<Log> serverSJW;
 
     public TPCHandler(ArrayList<Address> servers, int port, Serializer serializer, ManagedMessagingService ms) {
         this.servers = servers;
@@ -50,17 +50,17 @@ public class TPCHandler {
         for (int i = 0; i < this.servers.size(); i++)
             this.pendingTransactions.put(this.servers.get(i), new TreeMap<>());
 
-        this.coordinatorSJ = SegmentedJournal.<CoordinatorLog>builder().withName("coordinatorLog-" + port)
+        this.coordinatorSJ = SegmentedJournal.<Log>builder().withName("coordinatorLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(CoordinatorLog.class).addType(CoordinatorLog.Status.class).addType(Address.class)
+                        .addType(Log.class).addType(Log.Status.class).addType(Address.class)
                         .build())
                 .build();
         this.coordinatorSJW = coordinatorSJ.writer();
         this.ongoingCoordinatorTPC = new HashMap<>();
 
-        this.serverSJ = SegmentedJournal.<ServerLog>builder().withName("serverLog-" + port)
+        this.serverSJ = SegmentedJournal.<Log>builder().withName("serverLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(ServerLog.class).addType(ServerLog.Status.class).addType(Address.class).build())
+                        .addType(Log.class).addType(Log.Status.class).addType(Address.class).build())
                 .build();
         this.serverSJW = serverSJ.writer();
 
@@ -98,7 +98,7 @@ public class TPCHandler {
      * @param status
      * @return true if all servers have confirmed the transaction
      */
-    public boolean updateCoordinatorLog(TwoPhaseCommit tpc, CoordinatorLog.Status status) {
+    public boolean updateCoordinatorLog(TwoPhaseCommit tpc, Log.Status status) {
         return updateCoordinatorLog(tpc, status, null);
     }
 
@@ -108,8 +108,8 @@ public class TPCHandler {
      * @param remote
      * @return true if all servers have confirmed the transaction
      */
-    public boolean updateCoordinatorLog(TwoPhaseCommit tpc, CoordinatorLog.Status status, Address remote) {
-        CoordinatorLog log = new CoordinatorLog();
+    public boolean updateCoordinatorLog(TwoPhaseCommit tpc, Log.Status status, Address remote) {
+        Log log = new Log();
         log.setTpc(tpc);
         log.setStatus(status);
 
@@ -119,10 +119,10 @@ public class TPCHandler {
         }
 
         synchronized (this.ongoingCoordinatorTPC) {
-            if (status == CoordinatorLog.Status.STARTED) {
+            if (status == Log.Status.PREPARE) {
                 ongoingCoordinatorTPC.put(log, new HashSet<>(this.servers.size()));
                 return false;
-            } else { // status == (CoordinatorLog.Status.COMMITED || CoordinatorLog.Status.ABORTED)
+            } else { // status == (Log.Status.COMMITED || Log.Status.ABORTED)
                 HashSet<Address> accepted = ongoingCoordinatorTPC.get(log);
                 accepted.add(remote);
                 return accepted.size() == this.servers.size();
@@ -136,8 +136,8 @@ public class TPCHandler {
      * @param remote
      * @return the tpc that can be applied next
      */
-    public ArrayList<TwoPhaseCommit> updateServerLog(TwoPhaseCommit tpc, ServerLog.Status status, Address remote) {
-        ServerLog log = new ServerLog();
+    public ArrayList<TwoPhaseCommit> updateServerLog(TwoPhaseCommit tpc, Log.Status status, Address remote) {
+        Log log = new Log();
         log.setTpc(tpc);
         log.setStatus(status);
 
@@ -146,7 +146,7 @@ public class TPCHandler {
             serverSJW.flush();
         }
 
-        if (status == ServerLog.Status.PREPARED) {
+        if (status == Log.Status.PREPARE) {
             synchronized (this.pendingTransactions) {
                 synchronized (this.totalOrderCounter) {
                     this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.ONGOING, tpc));
@@ -156,9 +156,9 @@ public class TPCHandler {
             }
 
             return null;
-        } else { // status == (ServerLog.Status.COMMITED || ServerLog.Status.ABORTED)
+        } else { // status == (Log.Status.COMMITED || Log.Status.ABORTED)
             synchronized (this.pendingTransactions) {
-                if (status == ServerLog.Status.COMMITED)
+                if (status == Log.Status.COMMIT)
                     this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.COMMITED, tpc));
                 else
                     this.pendingTransactions.get(remote).put(tpc.getCount(), new Pair<>(TPCStatus.ABORTED, tpc));

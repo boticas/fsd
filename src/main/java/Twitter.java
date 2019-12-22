@@ -48,7 +48,7 @@ public class Twitter {
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
                     myAddress, Address.from(a.host(), a.port()));
 
-            tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
+            tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, myAddress);
 
             for (Address address : allAddresses)
                 ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
@@ -61,7 +61,7 @@ public class Twitter {
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
                     st.getTopics(), myAddress, Address.from(a.host(), a.port()));
 
-            tpcHandler.updateCoordinatorLog(prepare, CoordinatorLog.Status.STARTED, myAddress);
+            tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, myAddress);
 
             for (Address address : allAddresses)
                 ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
@@ -96,7 +96,7 @@ public class Twitter {
             System.out.println("tpcPrepare");
             TwoPhaseCommit prepare = serializer.decode(b);
 
-            tpcHandler.updateServerLog(prepare, ServerLog.Status.PREPARED, Address.from(a.host(), a.port()));
+            tpcHandler.updateServerLog(prepare, Log.Status.PREPARE, Address.from(a.host(), a.port()));
 
             ms.sendAsync(Address.from(a.host(), a.port()), "tpcResponseOk", serializer.encode(prepare));
         }, executor);
@@ -105,7 +105,7 @@ public class Twitter {
             System.out.println("tpcResponseOk");
             TwoPhaseCommit response = serializer.decode(b);
 
-            boolean allAccepted = tpcHandler.updateCoordinatorLog(response, CoordinatorLog.Status.COMMITED);
+            boolean allAccepted = tpcHandler.updateCoordinatorLog(response, Log.Status.COMMIT);
             if (allAccepted) {
                 for (Address address : allAddresses)
                     ms.sendAsync(address, "tpcCommit", serializer.encode(response));
@@ -118,7 +118,7 @@ public class Twitter {
             System.out.println("tpcResponseNotOk");
             TwoPhaseCommit response = serializer.decode(b);
 
-            tpcHandler.updateCoordinatorLog(response, CoordinatorLog.Status.ABORTED);
+            tpcHandler.updateCoordinatorLog(response, Log.Status.ABORT);
 
             for (Address address : allAddresses) {
                 ms.sendAsync(address, "tpcRollback", serializer.encode(response));
@@ -131,7 +131,7 @@ public class Twitter {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, ServerLog.Status.COMMITED,
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, Log.Status.COMMIT,
                     Address.from(a.host(), a.port()));
             for (TwoPhaseCommit tpc : tpcsToApply) {
                 if (tpc.getTweet() != null)
@@ -145,7 +145,7 @@ public class Twitter {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, ServerLog.Status.ABORTED,
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, Log.Status.ABORT,
                     Address.from(a.host(), a.port()));
         }, executor);
 
