@@ -3,11 +3,16 @@
  */
 public class Log {
     public enum Status {
-        PREPARE, COMMIT, ABORT
+        PREPARE, COMMIT, ABORT, HEARTBEAT
     }
 
     private TwoPhaseCommit tpc;
     private Status status;
+
+    public Log(TwoPhaseCommit tpc, Log.Status status) {
+        this.tpc = tpc;
+        this.status = status;
+    }
 
     /**
      * Get - tpc.
@@ -27,26 +32,6 @@ public class Log {
      */
     public Status getStatus() {
         return status;
-    }
-
-    /**
-     * Set - tpc.
-     * 
-     * @param tpc
-     * @return
-     */
-    public void setTpc(TwoPhaseCommit tpc) {
-        this.tpc = tpc;
-    }
-
-    /**
-     * Set - status.
-     * 
-     * @param status
-     * @return
-     */
-    public void setStatus(Status status) {
-        this.status = status;
     }
 
     /**
