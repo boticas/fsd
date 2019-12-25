@@ -44,14 +44,14 @@ public class TPCHandler {
         this.serializer = serializer;
         this.ms = ms;
 
+        this.totalOrderCounter = 0;
+
         this.coordinatorSJ = SegmentedJournal.<Log>builder().withName("coordinatorLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
                         .addType(Log.class).addType(Log.Status.class).addType(Address.class).build())
                 .build();
         this.coordinatorSJW = coordinatorSJ.writer();
         this.coordinatorTPCs = new HashMap<>();
-
-        this.totalOrderCounter = 0;
 
         this.serverSJ = SegmentedJournal.<Log>builder().withName("serverLog-" + port)
                 .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
@@ -65,7 +65,37 @@ public class TPCHandler {
     }
 
     public void applyPendingLog() {
-        ;
+        synchronized (this.totalOrderCounter) {
+            synchronized (this.coordinatorTPCs) {
+                // Coordinator
+                SegmentedJournalReader<Log> coordinatorSJR = this.coordinatorSJ.openReader(0);
+                while (coordinatorSJR.hasNext()) {
+                    Log l = coordinatorSJR.next().entry();
+                    if (l.getStatus() == Log.Status.PREPARE)
+                        this.coordinatorTPCs.put(l, new HashSet<>(this.servers.size()));
+                    else
+                        this.coordinatorTPCs.put(l, null);
+
+                    if (l.getTpc().getCount() >= this.totalOrderCounter)
+                        this.totalOrderCounter = l.getTpc().getCount() + 1;
+                }
+                coordinatorSJR.close();
+
+                for (Map.Entry<Log, HashSet<Address>> e : this.coordinatorTPCs.entrySet()) {
+                    if (e.getValue() != null) {
+                        TwoPhaseCommit tpc = e.getKey().getTpc();
+                        this.updateCoordinatorLog(tpc, Log.Status.PREPARE, null);
+                        for (Address address : this.servers)
+                            this.ms.sendAsync(address, "tpcPrepare", serializer.encode(tpc));
+                    }
+                }
+            }
+
+            synchronized (this.pendingTransactions) {
+                // Server
+                ;
+            }
+        }
     }
 
     /**

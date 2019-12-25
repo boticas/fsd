@@ -41,7 +41,7 @@ public class Twitter {
                 tpcHandler);
 
         // Apply the operations pending in the log
-        // tpcHandler.applyPendingLog();
+        tpcHandler.applyPendingLog();
     }
 
     private static void registerHandlers(ManagedMessagingService ms, ExecutorService executor, Serializer serializer,
