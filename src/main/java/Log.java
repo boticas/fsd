@@ -1,13 +1,18 @@
 /**
- * CoordinatorLog
+ * Log
  */
-public class CoordinatorLog {
+public class Log {
     public enum Status {
-        STARTED, COMMITED, ABORTED
+        PREPARE, COMMIT, ABORT, HEARTBEAT
     }
 
     private TwoPhaseCommit tpc;
     private Status status;
+
+    public Log(TwoPhaseCommit tpc, Log.Status status) {
+        this.tpc = tpc;
+        this.status = status;
+    }
 
     /**
      * Get - tpc.
@@ -27,26 +32,6 @@ public class CoordinatorLog {
      */
     public Status getStatus() {
         return status;
-    }
-
-    /**
-     * Set - tpc.
-     * 
-     * @param tpc
-     * @return
-     */
-    public void setTpc(TwoPhaseCommit tpc) {
-        this.tpc = tpc;
-    }
-
-    /**
-     * Set - status.
-     * 
-     * @param status
-     * @return
-     */
-    public void setStatus(Status status) {
-        this.status = status;
     }
 
     /**
@@ -77,7 +62,7 @@ public class CoordinatorLog {
         if (obj == null || this.getClass() != obj.getClass())
             return false;
 
-        CoordinatorLog cl = (CoordinatorLog) obj;
+        Log cl = (Log) obj;
         return this.tpc.equals(cl.tpc); // Ignore the status
     }
 }

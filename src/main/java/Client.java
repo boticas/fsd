@@ -48,7 +48,7 @@ public class Client {
     }
 
     private static void getLast10(ArrayList<Tweet> tweets) {
-        //TODO
+        // TODO
     }
 
     private static SubscribeTopics subscribeTopics(Topics currentTopics) {
@@ -96,7 +96,7 @@ public class Client {
         return t;
     }
 
-    public static void main(String[] args) throws ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.out.println("Indique o endereço do cliente e os do servidor (ip:porta)");
             System.exit(1);
@@ -111,18 +111,16 @@ public class Client {
                 .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
-        ms.start();
-
-        while (!ms.isRunning()) {
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        ms.registerHandler("result", (a, b) -> {
+            Response res = serializer.decode(b);
+            if (res.getSuccess())
+                System.out.println("Thanks for sharing!");
+            else
+                System.out.println("Sorry, try again later.");
+        }, executor);
+        ms.start().get();
 
         boolean exit = false;
-
         while (!exit) {
             StringBuilder main = new StringBuilder();
             main.append("What do you want to do? (Select number)\n");
@@ -179,6 +177,5 @@ public class Client {
                     break;
             }
         }
-
     }
 }
