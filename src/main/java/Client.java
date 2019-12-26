@@ -1,9 +1,7 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
@@ -98,7 +96,7 @@ public class Client {
         return t;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
         if (args.length != 2) {
             System.out.println("Indique o endereço do cliente e os do servidor (ip:porta)");
             System.exit(1);
@@ -114,13 +112,7 @@ public class Client {
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.start();
-        ms.registerHandler("result", (a, b) -> {
-            Response res = serializer.decode(b);
-            if (res.getSuccess())
-                System.out.println("Thanks for sharing!");
-            else
-                System.out.println("Sorry, try again later.");
-        }, executor);
+
         while (!ms.isRunning()) {
             try {
                 Thread.sleep(500);
@@ -151,12 +143,17 @@ public class Client {
             switch (escolha) {
                 case 1:
                     Tweet t = publishTweet();
-                    ms.sendAsync(server, "publishTweet", serializer.encode(t));
+                    res = ms.sendAndReceive(server, "publishTweet", serializer.encode(t)).get();
+                    Response response = serializer.decode(res);
+                    if (response.getSuccess())
+                        System.out.println("Thanks for sharing!");
+                    else
+                        System.out.println("Sorry, try again later.");
                     break;
                 case 2:
                     try {
                         // RESOLVER: Espera por uma resposta indefinidamente
-                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username))).get();
+                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), true, executor).get();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     } catch (ExecutionException e) {

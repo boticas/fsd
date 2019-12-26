@@ -196,7 +196,12 @@ public class DBHandler {
      */
     public ArrayList<String> getTopics(String username) {
         synchronized (subscriptionsDB) {
-            return this.subscriptionsDB.get(username);
+            ArrayList<String> answer = this.subscriptionsDB.get(username);
+            if (answer == null) {
+                return new ArrayList<>();
+            }
+            else
+                return answer;
         }
     }
 }
