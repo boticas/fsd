@@ -142,37 +142,42 @@ public class Client {
 
             byte[] res = null;
             switch (escolha) {
-            case 1:
-                Tweet t = publishTweet();
-                ms.sendAsync(server, "publishTweet", serializer.encode(t));
-                break;
-            case 2:
-                try {
-                    // RESOLVER: Espera por uma resposta indefinidamente
-                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username))).get();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (ExecutionException e) {
-                    e.printStackTrace();
-                }
-                SubscribeTopics topics = subscribeTopics(serializer.decode(res));
-                ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
-                break;
-            case 3:
-                try {
-                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } catch (ExecutionException e) {
-                    e.printStackTrace();
-                }
-                getLast10(((Tweets) serializer.decode(res)).getTweets());
-                break;
-            case 4:
-                clearView();
-                exit = true;
-                System.exit(1);
-                break;
+                case 1:
+                    Tweet t = publishTweet();
+                    res = ms.sendAndReceive(server, "publishTweet", serializer.encode(t)).get();
+                    Response response = serializer.decode(res);
+                    if (response.getSuccess())
+                        System.out.println("Thanks for sharing!");
+                    else
+                        System.out.println("Sorry, try again later.");
+                    break;
+                case 2:
+                    try {
+                        // RESOLVER: Espera por uma resposta indefinidamente
+                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    SubscribeTopics topics = subscribeTopics(serializer.decode(res));
+                    ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
+                    break;
+                case 3:
+                    try {
+                        res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    getLast10(((Tweets) serializer.decode(res)).getTweets());
+                    break;
+                case 4:
+                    clearView();
+                    exit = true;
+                    System.exit(1);
+                    break;
             }
         }
     }
