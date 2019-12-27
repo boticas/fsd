@@ -42,10 +42,7 @@ public class Log {
      */
     @Override
     public int hashCode() {
-        if (this.tpc.getTweet() != null)
-            return (int) this.tpc.getTweet().getContent().charAt(0);
-        else
-            return (int) this.tpc.getUsername().charAt(0);
+        return tpc.getCount();
     }
 
     /**

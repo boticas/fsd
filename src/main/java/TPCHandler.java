@@ -31,7 +31,7 @@ public class TPCHandler {
     // Coordinator
     private SegmentedJournal<Log> coordinatorSJ;
     private SegmentedJournalWriter<Log> coordinatorSJW;
-    private HashMap<Log, HashSet<Address>> coordinatorTPCs;
+    private HashMap<Log, Pair<HashSet<Address>, TPCStatus>> coordinatorTPCs;
 
     // Server
     private SegmentedJournal<Log> serverSJ;
@@ -72,17 +72,19 @@ public class TPCHandler {
                 while (coordinatorSJR.hasNext()) {
                     Log l = coordinatorSJR.next().entry();
                     if (l.getStatus() == Log.Status.PREPARE)
-                        this.coordinatorTPCs.put(l, new HashSet<>(this.servers.size()));
-                    else
-                        this.coordinatorTPCs.put(l, null);
+                        this.coordinatorTPCs.put(l, new Pair<>(new HashSet<>(this.servers.size()), TPCStatus.ONGOING));
+                    else if (l.getStatus() == Log.Status.COMMIT)
+                        this.coordinatorTPCs.put(l, new Pair<>(null, TPCStatus.COMMITED));
+                    else if (l.getStatus() == Log.Status.ABORT)
+                        this.coordinatorTPCs.put(l, new Pair<>(null, TPCStatus.ABORTED));
 
                     if (l.getTpc().getCount() >= this.totalOrderCounter)
                         this.totalOrderCounter = l.getTpc().getCount() + 1;
                 }
                 coordinatorSJR.close();
 
-                for (Map.Entry<Log, HashSet<Address>> e : this.coordinatorTPCs.entrySet()) {
-                    if (e.getValue() != null) {
+                for (Map.Entry<Log, Pair<HashSet<Address>, TPCStatus>> e : this.coordinatorTPCs.entrySet()) {
+                    if (e.getValue().getValue() == TPCStatus.ONGOING) {
                         TwoPhaseCommit tpc = e.getKey().getTpc();
                         this.updateCoordinatorLog(tpc, Log.Status.PREPARE, null);
                         for (Address address : this.servers)
@@ -93,7 +95,30 @@ public class TPCHandler {
 
             synchronized (this.pendingTransactions) {
                 // Server
-                ;
+                SegmentedJournalReader<Log> serverSJR = this.serverSJ.openReader(0);
+                while (serverSJR.hasNext()) {
+                    Log l = serverSJR.next().entry();
+                    if (l.getStatus() == Log.Status.PREPARE)
+                        this.pendingTransactions.get(l.getTpc().getCoordinator()).put(l.getTpc().getCount(),
+                                new Pair<>(TPCStatus.ONGOING, l.getTpc()));
+                    else if (l.getStatus() != Log.Status.HEARTBEAT)
+                        this.pendingTransactions.get(l.getTpc().getCoordinator()).remove(l.getTpc().getCount());
+
+                    if (l.getTpc().getCount() >= this.totalOrderCounter)
+                        this.totalOrderCounter = l.getTpc().getCount() + 1;
+                }
+                serverSJR.close();
+
+                for (Map.Entry<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>> t : this.pendingTransactions
+                        .entrySet()) {
+                    for (Pair<TPCStatus, TwoPhaseCommit> p : t.getValue().values()) {
+                        TwoPhaseCommit tpc = p.getValue();
+                        this.ms.sendAsync(t.getKey(), "tpcGetStatus", serializer.encode(tpc));
+                    }
+
+                    if (t.getValue().values().size() == 0)
+                        this.ms.sendAsync(t.getKey(), "tpcGetStatus", serializer.encode(new TwoPhaseCommit(this.getAndIncrementTotalOrderCounter(), t.getKey())));
+                }
             }
         }
     }
@@ -107,6 +132,52 @@ public class TPCHandler {
             this.totalOrderCounter++;
             return res;
         }
+    }
+
+    /**
+     * @return the status of the tpc and if it is necessary to rollback
+     */
+    public Status getStatus(TwoPhaseCommit tpc, Address remote) {
+        synchronized (this.coordinatorTPCs) {
+            for (Map.Entry<Log, Pair<HashSet<Address>, TPCStatus>> e : this.coordinatorTPCs.entrySet()) {
+                if (e.getValue().getValue() != TPCStatus.ONGOING || e.getKey().getTpc() == tpc)
+                    continue;
+
+                if (!e.getValue().getKey().contains(remote)) {
+                    this.updateCoordinatorLog(e.getKey().getTpc(), Log.Status.ABORT, remote);
+                    for (Address address : this.servers)
+                        this.ms.sendAsync(address, "tpcRollback", serializer.encode(e.getKey().getTpc()));
+                    Response result = new Response(false);
+                    ms.sendAsync(e.getKey().getTpc().getRequester(), "result", serializer.encode(result));
+                }
+            }
+
+            if (!tpc.isHeartbeat()) {
+                Log log = new Log(tpc, Log.Status.PREPARE);
+                Pair<HashSet<Address>, TPCStatus> accepted = this.coordinatorTPCs.get(log);
+                if (accepted.getValue() == TPCStatus.ABORTED)
+                    return new Status(tpc, Log.Status.ABORT);
+
+                if (accepted.getValue() == TPCStatus.COMMITED)
+                    return new Status(tpc, Log.Status.COMMIT);
+
+                if (accepted.getKey().contains(remote))
+                    return new Status(tpc, null);
+
+                this.updateCoordinatorLog(tpc, Log.Status.ABORT, remote);
+                for (Address address : this.servers)
+                    ms.sendAsync(address, "tpcRollback", serializer.encode(tpc));
+                Response result = new Response(false);
+                ms.sendAsync(tpc.getRequester(), "result", serializer.encode(result));
+
+                return new Status(tpc, null);
+            } else
+                return new Status(tpc, null);
+        }
+    }
+
+    public ArrayList<TwoPhaseCommit> updateStatus(Status status) {
+        return this.updateServerLog(status.getTpc(), status.getStatus(), status.getTpc().getCoordinator());
     }
 
     /**
@@ -131,16 +202,21 @@ public class TPCHandler {
         synchronized (this.coordinatorTPCs) {
             if (status == Log.Status.PREPARE) {
                 this.writeCoordinatorLog(log);
-                this.coordinatorTPCs.put(log, new HashSet<>(this.servers.size()));
+                this.coordinatorTPCs.put(log, new Pair<>(new HashSet<>(this.servers.size()), TPCStatus.ONGOING));
                 return false;
-            } else { // status == (Log.Status.COMMIT || Log.Status.ABORT)
-                HashSet<Address> accepted = coordinatorTPCs.get(log);
-                accepted.add(remote);
-                if (accepted.size() == this.servers.size()) {
+            } else if (status == Log.Status.COMMIT) {
+                Pair<HashSet<Address>, TPCStatus> accepted = coordinatorTPCs.get(log);
+                accepted.getKey().add(remote);
+                if (accepted.getKey().size() == this.servers.size()) {
                     this.writeCoordinatorLog(log);
+                    this.coordinatorTPCs.put(log, new Pair<>(null, TPCStatus.COMMITED));
                     return true;
                 } else
                     return false;
+            } else { // status == Log.Status.ABORT
+                this.writeCoordinatorLog(log);
+                this.coordinatorTPCs.put(log, new Pair<>(null, TPCStatus.ABORTED));
+                return false;
             }
         }
     }

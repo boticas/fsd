@@ -110,7 +110,8 @@ public class Client {
         ExecutorService executor = Executors.newFixedThreadPool(1);
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
-                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
+                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
+                .addType(Log.Status.class).build();
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.registerHandler("result", (a, b) -> {
@@ -141,37 +142,37 @@ public class Client {
 
             byte[] res = null;
             switch (escolha) {
-                case 1:
-                    Tweet t = publishTweet();
-                    ms.sendAsync(server, "publishTweet", serializer.encode(t));
-                    break;
-                case 2:
-                    try {
-                        // RESOLVER: Espera por uma resposta indefinidamente
-                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username))).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
-                    SubscribeTopics topics = subscribeTopics(serializer.decode(res));
-                    ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
-                    break;
-                case 3:
-                    try {
-                        res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
-                    getLast10(((Tweets)serializer.decode(res)).getTweets());
-                    break;
-                case 4:
-                    clearView();
-                    exit = true;
-                    System.exit(1);
-                    break;
+            case 1:
+                Tweet t = publishTweet();
+                ms.sendAsync(server, "publishTweet", serializer.encode(t));
+                break;
+            case 2:
+                try {
+                    // RESOLVER: Espera por uma resposta indefinidamente
+                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username))).get();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                }
+                SubscribeTopics topics = subscribeTopics(serializer.decode(res));
+                ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
+                break;
+            case 3:
+                try {
+                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                }
+                getLast10(((Tweets) serializer.decode(res)).getTweets());
+                break;
+            case 4:
+                clearView();
+                exit = true;
+                System.exit(1);
+                break;
             }
         }
     }

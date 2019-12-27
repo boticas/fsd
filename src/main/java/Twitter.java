@@ -28,7 +28,8 @@ public class Twitter {
         // Serializer for all the messages
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
-                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).build();
+                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
+                .addType(Log.Status.class).build();
 
         // Initialize the messaging service
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
@@ -53,7 +54,7 @@ public class Twitter {
             newTweet.orderTopics();
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
-                    myAddress, Address.from(a.host(), a.port()));
+                    myAddress, a);
 
             tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, null);
 
@@ -66,7 +67,7 @@ public class Twitter {
             SubscribeTopics st = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
-                    st.getTopics(), myAddress, Address.from(a.host(), a.port()));
+                    st.getTopics(), myAddress, a);
 
             tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, null);
 
@@ -82,11 +83,11 @@ public class Twitter {
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
                 Tweets last10all = new Tweets(dbHandler.getLast10Tweets(username));
-                ms.sendAsync(Address.from(a.host(), a.port()), "last10", serializer.encode(last10all));
+                ms.sendAsync(a, "last10", serializer.encode(last10all));
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
                 Tweets last10some = new Tweets(dbHandler.getLast10TweetsPerTopic(username, topics));
-                ms.sendAsync(Address.from(a.host(), a.port()), "last10", serializer.encode(last10some));
+                ms.sendAsync(a, "last10", serializer.encode(last10some));
             }
         }, executor);
 
@@ -96,24 +97,23 @@ public class Twitter {
             String username = gt.getUsername();
             // Return the topics username is subscribed to
             Topics topics = new Topics(dbHandler.getTopics(username));
-            ms.sendAsync(Address.from(a.host(), a.port()), "getTopics", serializer.encode(topics));
+            ms.sendAsync(a, "getTopics", serializer.encode(topics));
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {
             System.out.println("tpcPrepare");
             TwoPhaseCommit prepare = serializer.decode(b);
 
-            tpcHandler.updateServerLog(prepare, Log.Status.PREPARE, Address.from(a.host(), a.port()));
+            tpcHandler.updateServerLog(prepare, Log.Status.PREPARE, a);
 
-            ms.sendAsync(Address.from(a.host(), a.port()), "tpcResponseOk", serializer.encode(prepare));
+            ms.sendAsync(a, "tpcResponseOk", serializer.encode(prepare));
         }, executor);
 
         ms.registerHandler("tpcResponseOk", (a, b) -> {
             System.out.println("tpcResponseOk");
             TwoPhaseCommit response = serializer.decode(b);
 
-            boolean allAccepted = tpcHandler.updateCoordinatorLog(response, Log.Status.COMMIT,
-                    Address.from(a.host(), a.port()));
+            boolean allAccepted = tpcHandler.updateCoordinatorLog(response, Log.Status.COMMIT, a);
             if (allAccepted) {
                 for (Address address : allAddresses)
                     ms.sendAsync(address, "tpcCommit", serializer.encode(response));
@@ -126,7 +126,7 @@ public class Twitter {
             System.out.println("tpcResponseNotOk");
             TwoPhaseCommit response = serializer.decode(b);
 
-            tpcHandler.updateCoordinatorLog(response, Log.Status.ABORT, Address.from(a.host(), a.port()));
+            tpcHandler.updateCoordinatorLog(response, Log.Status.ABORT, a);
 
             for (Address address : allAddresses) {
                 ms.sendAsync(address, "tpcRollback", serializer.encode(response));
@@ -139,8 +139,7 @@ public class Twitter {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, Log.Status.COMMIT,
-                    Address.from(a.host(), a.port()));
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, Log.Status.COMMIT, a);
             for (TwoPhaseCommit tpc : tpcsToApply) {
                 if (tpc.getTweet() != null)
                     dbHandler.addTweet(tpc.getTweet());
@@ -153,16 +152,20 @@ public class Twitter {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, Log.Status.ABORT,
-                    Address.from(a.host(), a.port()));
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, Log.Status.ABORT, a);
+            for (TwoPhaseCommit tpc : tpcsToApply) {
+                if (tpc.getTweet() != null)
+                    dbHandler.addTweet(tpc.getTweet());
+                else
+                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            }
         }, executor);
 
         ms.registerHandler("tpcHeartbeat", (a, b) -> {
             System.out.println("tpcHeartbeat");
             TwoPhaseCommit heartbeat = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat,
-                    Address.from(a.host(), a.port()));
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat, a);
             for (TwoPhaseCommit tpc : tpcsToApply) {
                 if (tpc.getTweet() != null)
                     dbHandler.addTweet(tpc.getTweet());
@@ -174,7 +177,38 @@ public class Twitter {
         ms.registerHandler("tpcGetHeartbeat", (a, b) -> {
             System.out.println("tpcGetHeartbeat");
             TwoPhaseCommit heartbeat = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), myAddress);
-            ms.sendAsync(Address.from(a.host(), a.port()), "tpcHeartbeat", serializer.encode(heartbeat));
+            ms.sendAsync(a, "tpcHeartbeat", serializer.encode(heartbeat));
+        }, executor);
+
+        ms.registerHandler("tpcGetStatus", (a, b) -> {
+            System.out.println("tpcGetStatus");
+            TwoPhaseCommit getStatus = serializer.decode(b);
+
+            TwoPhaseCommit heartbeat = new TwoPhaseCommit(getStatus.getCount(), getStatus.getCoordinator());
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat, a);
+            for (TwoPhaseCommit tpc : tpcsToApply) {
+                if (tpc.getTweet() != null)
+                    dbHandler.addTweet(tpc.getTweet());
+                else
+                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            }
+
+            Status status = tpcHandler.getStatus(getStatus, a);
+            if (status.getStatus() != null)
+                ms.sendAsync(a, "tpcStatus", serializer.encode(status));
+        }, executor);
+
+        ms.registerHandler("tpcStatus", (a, b) -> {
+            System.out.println("tpcStatus");
+            Status status = serializer.decode(b);
+
+            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateStatus(status);
+            for (TwoPhaseCommit tpc : tpcsToApply) {
+                if (tpc.getTweet() != null)
+                    dbHandler.addTweet(tpc.getTweet());
+                else
+                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            }
         }, executor);
 
         ms.start().get();
