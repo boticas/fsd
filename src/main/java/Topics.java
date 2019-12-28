@@ -1,19 +1,20 @@
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 /**
  * Tweets
  */
 public class Topics {
-    private ArrayList<String> topics;
+    private HashSet<String> topics;
 
     /**
      * Parameterized class builder.
      * 
      * @param topics
      */
-    public Topics(ArrayList<String> topics) {
-        ArrayList<String> newTopics = new ArrayList<>(topics.size());
+    public Topics(HashSet<String> topics) {
+        HashSet<String> newTopics = new HashSet<>(topics.size());
         for (String t: topics) {
             newTopics.add(t);
         }

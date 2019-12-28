@@ -1,5 +1,5 @@
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.HashSet;
 
 /**
  * Tweet
@@ -9,7 +9,7 @@ import java.util.ArrayList;
 public class Tweet implements Serializable {
     private String username;
     private String content;
-    private ArrayList<String> topics;
+    private HashSet<String> topics;
 
     /**
      * Parameterized class builder.
@@ -18,10 +18,10 @@ public class Tweet implements Serializable {
      * @param content
      * @param topics
      */
-    public Tweet(String username, String content, ArrayList<String> topics) {
+    public Tweet(String username, String content, HashSet<String> topics) {
         this.username = username;
         this.content = content;
-        ArrayList<String> aux = new ArrayList<String>(topics.size());
+        HashSet<String> aux = new HashSet<String>(topics.size());
         topics.forEach((t) -> aux.add(t));
         this.topics = aux;
     }
@@ -52,8 +52,8 @@ public class Tweet implements Serializable {
      * @param
      * @return topics
      */
-    public ArrayList<String> getTopics() {
-        ArrayList<String> res = new ArrayList<String>(this.topics.size());
+    public HashSet<String> getTopics() {
+        HashSet<String> res = new HashSet<String>(this.topics.size());
         this.topics.forEach((t) -> res.add(t));
         return res;
     }
@@ -66,16 +66,6 @@ public class Tweet implements Serializable {
      */
     public boolean hasTopic(String topic) {
         return this.topics.contains(topic);
-    }
-
-    /**
-     * Method that return the topics in ascending order.
-     * 
-     * @param
-     * @return ordered topics
-     */
-    public void orderTopics() {
-        this.topics.sort((s1, s2) -> s1.compareTo(s2));
     }
 
     /**

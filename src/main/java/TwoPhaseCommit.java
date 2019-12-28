@@ -1,4 +1,4 @@
-import java.util.ArrayList;
+import java.util.HashSet;
 
 import io.atomix.utils.net.Address;
 
@@ -15,7 +15,7 @@ public class TwoPhaseCommit {
     private Tweet tweet;
 
     private String username;
-    private ArrayList<String> topics;
+    private HashSet<String> topics;
 
     /**
      * Parameterized class builder.
@@ -51,10 +51,10 @@ public class TwoPhaseCommit {
      * @param topics
      * @param coordinator
      */
-    public TwoPhaseCommit(int count, String username, ArrayList<String> topics, Address coordinator, Address requester) {
+    public TwoPhaseCommit(int count, String username, HashSet<String> topics, Address coordinator, Address requester) {
         this.count = count;
         this.username = username;
-        ArrayList<String> aux = new ArrayList<String>(topics.size());
+        HashSet<String> aux = new HashSet<String>(topics.size());
         topics.forEach((t) -> aux.add(t));
         this.topics = aux;
         this.coordinator = coordinator;
@@ -107,8 +107,8 @@ public class TwoPhaseCommit {
      * @param
      * @return topics
      */
-    public ArrayList<String> getTopics() {
-        ArrayList<String> res = new ArrayList<String>(this.topics.size());
+    public HashSet<String> getTopics() {
+        HashSet<String> res = new HashSet<String>(this.topics.size());
         this.topics.forEach((t) -> res.add(t));
         return res;
     }

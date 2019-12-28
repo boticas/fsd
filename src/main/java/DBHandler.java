@@ -14,7 +14,7 @@ public class DBHandler {
     private int port;
     private ArrayList<Tweet> allTweets;
     private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para indices de tweets desse tópico
-    private HashMap<String, ArrayList<String>> subscriptionsDB; // username para tópicos subscritos
+    private HashMap<String, HashSet<String>> subscriptionsDB; // username para tópicos subscritos
 
     /**
      * Parameterized class builder.
@@ -49,7 +49,7 @@ public class DBHandler {
 
             this.allTweets = (ArrayList<Tweet>) oi.readObject();
             this.tweetsDB = (HashMap<String, ArrayList<Integer>>) oi.readObject();
-            this.subscriptionsDB = (HashMap<String, ArrayList<String>>) oi.readObject();
+            this.subscriptionsDB = (HashMap<String, HashSet<String>>) oi.readObject();
 
             oi.close();
             fi.close();
@@ -96,7 +96,7 @@ public class DBHandler {
         }
 
         synchronized (this.tweetsDB) {
-            ArrayList<String> topics = tweet.getTopics();
+            HashSet<String> topics = tweet.getTopics();
             for (String topic : topics) {
                 ArrayList<Integer> tweets = this.tweetsDB.get(topic);
                 if (tweets == null) {
@@ -114,7 +114,7 @@ public class DBHandler {
      * @param username
      * @param topics
      */
-    public void updateSubscriptions(String username, ArrayList<String> topics) {
+    public void updateSubscriptions(String username, HashSet<String> topics) {
         synchronized (this.subscriptionsDB) {
             subscriptionsDB.put(username, topics);
             this.saveDB();
@@ -130,7 +130,7 @@ public class DBHandler {
     public ArrayList<Tweet> getLast10Tweets(String username) {
         ArrayList<Tweet> last10 = new ArrayList<>();
 
-        ArrayList<String> subscriptions;
+        HashSet<String> subscriptions;
         synchronized (this.subscriptionsDB) {
             subscriptions = this.subscriptionsDB.get(username);
         }
@@ -163,7 +163,7 @@ public class DBHandler {
     public ArrayList<Tweet> getLast10TweetsPerTopic(String username, ArrayList<String> topics) {
         ArrayList<Tweet> last10 = new ArrayList<>();
 
-        ArrayList<String> subscriptions;
+        HashSet<String> subscriptions;
         synchronized (this.subscriptionsDB) {
              subscriptions = this.subscriptionsDB.get(username);
         }
@@ -194,11 +194,11 @@ public class DBHandler {
      * @param username
      * @return All the topics subscribed
      */
-    public ArrayList<String> getTopics(String username) {
+    public HashSet<String> getTopics(String username) {
         synchronized (subscriptionsDB) {
-            ArrayList<String> subscriptions = this.subscriptionsDB.get(username);
+            HashSet<String> subscriptions = this.subscriptionsDB.get(username);
             if (subscriptions == null)
-                return new ArrayList<>();
+                return new HashSet<>();
 
             return subscriptions;
         }

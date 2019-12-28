@@ -35,7 +35,7 @@ public class Twitter {
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
 
         // Setup the infrastructure related to TPC and respective logs
-        TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port(), serializer, ms);
+        TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port(), serializer, ms, dbHandler);
 
         // Register the handlers for receiving messages
         registerHandlers(ms, Executors.newFixedThreadPool(1), serializer, myAddress, allAddresses, dbHandler,
@@ -51,7 +51,6 @@ public class Twitter {
         ms.registerHandler("publishTweet", (a, b) -> {
             System.out.println("publishTweet");
             Tweet newTweet = serializer.decode(b);
-            newTweet.orderTopics();
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
                     myAddress, a);
@@ -83,11 +82,11 @@ public class Twitter {
             if (topics == null) {
                 // Return last 10 tweets from the user's subscriptions
                 Tweets last10all = new Tweets(dbHandler.getLast10Tweets(username));
-                ms.sendAsync(a, "last10", serializer.encode(last10all));
+                return serializer.encode(last10all);
             } else {
                 // Return last 10 tweets for each of the topics that the user is subscribed
                 Tweets last10some = new Tweets(dbHandler.getLast10TweetsPerTopic(username, topics));
-                ms.sendAsync(a, "last10", serializer.encode(last10some));
+                return serializer.encode(last10some);
             }
         }, executor);
 
@@ -97,7 +96,7 @@ public class Twitter {
             String username = gt.getUsername();
             // Return the topics username is subscribed to
             Topics topics = new Topics(dbHandler.getTopics(username));
-            ms.sendAsync(a, "getTopics", serializer.encode(topics));
+            return serializer.encode(topics);
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {
@@ -139,39 +138,21 @@ public class Twitter {
             System.out.println("tpcCommit");
             TwoPhaseCommit commit = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(commit, Log.Status.COMMIT, a);
-            for (TwoPhaseCommit tpc : tpcsToApply) {
-                if (tpc.getTweet() != null)
-                    dbHandler.addTweet(tpc.getTweet());
-                else
-                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
-            }
+            tpcHandler.updateServerLog(commit, Log.Status.COMMIT, a);
         }, executor);
 
         ms.registerHandler("tpcRollback", (a, b) -> {
             System.out.println("tpcRollback");
             TwoPhaseCommit rollback = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateServerLog(rollback, Log.Status.ABORT, a);
-            for (TwoPhaseCommit tpc : tpcsToApply) {
-                if (tpc.getTweet() != null)
-                    dbHandler.addTweet(tpc.getTweet());
-                else
-                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
-            }
+            tpcHandler.updateServerLog(rollback, Log.Status.ABORT, a);
         }, executor);
 
         ms.registerHandler("tpcHeartbeat", (a, b) -> {
             System.out.println("tpcHeartbeat");
             TwoPhaseCommit heartbeat = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat, a);
-            for (TwoPhaseCommit tpc : tpcsToApply) {
-                if (tpc.getTweet() != null)
-                    dbHandler.addTweet(tpc.getTweet());
-                else
-                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
-            }
+            tpcHandler.processHeartbeat(heartbeat, a);
         }, executor);
 
         ms.registerHandler("tpcGetHeartbeat", (a, b) -> {
@@ -185,13 +166,7 @@ public class Twitter {
             TwoPhaseCommit getStatus = serializer.decode(b);
 
             TwoPhaseCommit heartbeat = new TwoPhaseCommit(getStatus.getCount(), getStatus.getCoordinator());
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.processHeartbeat(heartbeat, a);
-            for (TwoPhaseCommit tpc : tpcsToApply) {
-                if (tpc.getTweet() != null)
-                    dbHandler.addTweet(tpc.getTweet());
-                else
-                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
-            }
+            tpcHandler.processHeartbeat(heartbeat, a);
 
             Status status = tpcHandler.getStatus(getStatus, a);
             if (status.getStatus() != null)
@@ -202,13 +177,7 @@ public class Twitter {
             System.out.println("tpcStatus");
             Status status = serializer.decode(b);
 
-            ArrayList<TwoPhaseCommit> tpcsToApply = tpcHandler.updateStatus(status);
-            for (TwoPhaseCommit tpc : tpcsToApply) {
-                if (tpc.getTweet() != null)
-                    dbHandler.addTweet(tpc.getTweet());
-                else
-                    dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
-            }
+            tpcHandler.updateStatus(status);
         }, executor);
 
         ms.start().get();

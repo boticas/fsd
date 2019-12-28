@@ -25,6 +25,7 @@ public class TPCHandler {
     private ArrayList<Address> servers;
     private Serializer serializer;
     private ManagedMessagingService ms;
+    private DBHandler dbHandler;
 
     private Integer totalOrderCounter;
 
@@ -39,10 +40,12 @@ public class TPCHandler {
 
     private HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>> pendingTransactions;
 
-    public TPCHandler(ArrayList<Address> servers, int port, Serializer serializer, ManagedMessagingService ms) {
+    public TPCHandler(ArrayList<Address> servers, int port, Serializer serializer, ManagedMessagingService ms,
+            DBHandler dbHandler) {
         this.servers = servers;
         this.serializer = serializer;
         this.ms = ms;
+        this.dbHandler = dbHandler;
 
         this.totalOrderCounter = 0;
 
@@ -117,7 +120,8 @@ public class TPCHandler {
                     }
 
                     if (t.getValue().values().size() == 0)
-                        this.ms.sendAsync(t.getKey(), "tpcGetStatus", serializer.encode(new TwoPhaseCommit(this.getAndIncrementTotalOrderCounter(), t.getKey())));
+                        this.ms.sendAsync(t.getKey(), "tpcGetStatus", serializer
+                                .encode(new TwoPhaseCommit(this.getAndIncrementTotalOrderCounter(), t.getKey())));
                 }
             }
         }
@@ -176,8 +180,8 @@ public class TPCHandler {
         }
     }
 
-    public ArrayList<TwoPhaseCommit> updateStatus(Status status) {
-        return this.updateServerLog(status.getTpc(), status.getStatus(), status.getTpc().getCoordinator());
+    public void updateStatus(Status status) {
+        this.updateServerLog(status.getTpc(), status.getStatus(), status.getTpc().getCoordinator());
     }
 
     /**
@@ -221,6 +225,15 @@ public class TPCHandler {
         }
     }
 
+    public void applyTpcs(ArrayList<TwoPhaseCommit> tpcsToApply) {
+        for (TwoPhaseCommit tpc : tpcsToApply) {
+            if (tpc.getTweet() != null)
+                this.dbHandler.addTweet(tpc.getTweet());
+            else
+                this.dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+        }
+    }
+
     /**
      * @param log
      */
@@ -237,7 +250,7 @@ public class TPCHandler {
      * @param remote
      * @return the tpcs that should be applied next
      */
-    public ArrayList<TwoPhaseCommit> updateServerLog(TwoPhaseCommit tpc, Log.Status status, Address remote) {
+    public void updateServerLog(TwoPhaseCommit tpc, Log.Status status, Address remote) {
         Log log = new Log(tpc, status);
 
         this.writeServerLog(log);
@@ -251,8 +264,6 @@ public class TPCHandler {
                 if (tpc.getCount() >= this.totalOrderCounter)
                     this.totalOrderCounter = tpc.getCount() + 1;
             }
-
-            return null;
         } else { // status == (Log.Status.COMMIT || Log.Status.ABORT || Log.Status.HEARTBEAT)
             synchronized (this.pendingTransactions) {
                 if (tpc.isHeartbeat()) {
@@ -278,8 +289,10 @@ public class TPCHandler {
                     for (Address a : this.pendingTransactions.keySet()) {
                         TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>> pt = this.pendingTransactions.get(a);
                         if (pt.size() == 0) {
-                            if (tpc.isHeartbeat())
-                                return tpcsToApply;
+                            if (tpc.isHeartbeat()) {
+                                this.applyTpcs(tpcsToApply);
+                                return;
+                            }
 
                             emptyAddresses.add(a);
                             continue;
@@ -295,14 +308,17 @@ public class TPCHandler {
                     }
 
                     if (!tpc.isHeartbeat()) {
-                        if (emptyAddresses.size() == this.servers.size())
-                            return tpcsToApply;
+                        if (emptyAddresses.size() == this.servers.size()) {
+                            this.applyTpcs(tpcsToApply);
+                            return;
+                        }
 
                         if (emptyAddresses.size() > 0) {
                             for (Address address : emptyAddresses)
                                 this.ms.sendAsync(address, "tpcGetHeartbeat", serializer.encode(null));
 
-                            return tpcsToApply;
+                            this.applyTpcs(tpcsToApply);
+                            return;
                         }
                     }
 
@@ -315,7 +331,8 @@ public class TPCHandler {
 
                     if (tpcToProcess.getKey() == TPCStatus.ONGOING) {
                         this.pendingTransactions.get(sAddress).put(toProcess.getKey(), tpcToProcess);
-                        return tpcsToApply;
+                        this.applyTpcs(tpcsToApply);
+                        return;
                     } else if (tpcToProcess.getKey() == TPCStatus.COMMITED)
                         tpcsToApply.add(tpcToProcess.getValue());
                 }
@@ -328,7 +345,7 @@ public class TPCHandler {
      * @param remote
      * @return the tpcs that should be applied next
      */
-    public ArrayList<TwoPhaseCommit> processHeartbeat(TwoPhaseCommit heartbeat, Address remote) {
-        return this.updateServerLog(heartbeat, Log.Status.HEARTBEAT, remote);
+    public void processHeartbeat(TwoPhaseCommit heartbeat, Address remote) {
+        this.updateServerLog(heartbeat, Log.Status.HEARTBEAT, remote);
     }
 }

@@ -1,10 +1,10 @@
-import java.util.ArrayList;
+import java.util.HashSet;
 
 /**
  * SubscribeTopics
  */
 public class SubscribeTopics {
-    private ArrayList<String> topics;
+    private HashSet<String> topics;
     private String username;
 
     /**
@@ -22,8 +22,8 @@ public class SubscribeTopics {
      * @param topics
      * @param username
      */
-    public SubscribeTopics(ArrayList<String> topics, String username) {
-        ArrayList<String> aux = new ArrayList<String>(topics.size());
+    public SubscribeTopics(HashSet<String> topics, String username) {
+        HashSet<String> aux = new HashSet<String>(topics.size());
         topics.forEach((t) -> aux.add(t));
         this.topics = aux;
         this.username = username;
@@ -35,8 +35,8 @@ public class SubscribeTopics {
      * @param
      * @return topics
      */
-    public ArrayList<String> getTopics() {
-        ArrayList<String> res = new ArrayList<String>(this.topics.size());
+    public HashSet<String> getTopics() {
+        HashSet<String> res = new HashSet<String>(this.topics.size());
         this.topics.forEach((t) -> res.add(t));
         return res;
     }

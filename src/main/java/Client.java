@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -67,7 +68,7 @@ public class Client {
             e.printStackTrace();
         }
         String[] topics = input.split(" ");
-        ArrayList<String> topicsList = new ArrayList<String>(currentTopics.getTopics());
+        HashSet<String> topicsList = new HashSet<String>(currentTopics.getTopics());
         for (String word : topics) {
             // Problema: Cortar pontuações nos extremos
             if (word.charAt(0) == '#')
@@ -88,7 +89,7 @@ public class Client {
             e.printStackTrace();
         }
         String[] words = tweet.split(" ");
-        ArrayList<String> topics = new ArrayList<>();
+        HashSet<String> topics = new HashSet<>();
         for (String word : words) {
             // Problema: Cortar pontuações nos extremos
             if (word.charAt(0) == '#')
@@ -153,7 +154,6 @@ public class Client {
                     break;
                 case 2:
                     try {
-                        // RESOLVER: Espera por uma resposta indefinidamente
                         res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
                     } catch (InterruptedException e) {
                         e.printStackTrace();
