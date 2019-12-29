@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -7,11 +8,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import io.atomix.utils.net.Address;
+
 /**
  * DBHandler
  */
 public class DBHandler {
     private int port;
+    private HashSet<Address> servers;
     private ArrayList<Tweet> allTweets;
     private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para indices de tweets desse tópico
     private HashMap<String, HashSet<String>> subscriptionsDB; // username para tópicos subscritos
@@ -21,19 +25,42 @@ public class DBHandler {
      * 
      * @param port
      */
-    public DBHandler(int port) {
-        this.port = port;
+    public DBHandler(Address address) {
+        this.port = address.port();
+        this.servers = new HashSet<>();
+        this.servers.add(address);
         this.allTweets = new ArrayList<>();
         this.tweetsDB = new HashMap<>();
         this.subscriptionsDB = new HashMap<>();
 
         this.initializeDB();
+    }
 
-        /* REMOVER */
-        this.tweetsDB.forEach((k, v) -> {
-            System.out.println("--- " + k + " ---");
-            v.forEach((t) -> System.out.println(this.allTweets.get(t).getContent()));
-        });
+    /**
+     * Parameterized class builder.
+     * 
+     * @param port
+     */
+    public DBHandler(int port, HashSet<Address> servers, ArrayList<Tweet> allTweets,
+            HashMap<String, ArrayList<Integer>> tweetsDB, HashMap<String, HashSet<String>> subscriptionsDB) {
+        this.port = port;
+        this.servers = servers;
+        this.allTweets = allTweets;
+        this.tweetsDB = tweetsDB;
+        this.subscriptionsDB = subscriptionsDB;
+
+        this.saveDB();
+    }
+
+    /**
+     * Method that checks if there is a database.
+     * 
+     * @param
+     * @return
+     */
+    public static boolean checkDB(int port) {
+        File aux = new File("db-" + port + ".data");
+        return aux.exists();
     }
 
     /**
@@ -47,6 +74,8 @@ public class DBHandler {
             FileInputStream fi = new FileInputStream("db-" + this.port + ".data");
             ObjectInputStream oi = new ObjectInputStream(fi);
 
+            ArrayList<String> addresses = (ArrayList<String>) oi.readObject();
+            addresses.forEach((a) -> this.servers.add(Address.from(a)));
             this.allTweets = (ArrayList<Tweet>) oi.readObject();
             this.tweetsDB = (HashMap<String, ArrayList<Integer>>) oi.readObject();
             this.subscriptionsDB = (HashMap<String, HashSet<String>>) oi.readObject();
@@ -71,6 +100,9 @@ public class DBHandler {
             FileOutputStream f = new FileOutputStream("db-" + this.port + ".data");
             ObjectOutputStream o = new ObjectOutputStream(f);
 
+            ArrayList<String> addresses = new ArrayList<>();
+            this.servers.forEach((a) -> addresses.add(a.toString()));
+            o.writeObject(addresses);
             o.writeObject(this.allTweets);
             o.writeObject(this.tweetsDB);
             o.writeObject(this.subscriptionsDB);
@@ -122,6 +154,18 @@ public class DBHandler {
     }
 
     /**
+     * 
+     * @param username
+     * @param topics
+     */
+    public void addServer(Address address) {
+        synchronized (this.servers) {
+            this.servers.add(address);
+            this.saveDB();
+        }
+    }
+
+    /**
      * Get the last 10 tweets from the topics subscribed by the username.
      * 
      * @param username
@@ -143,9 +187,9 @@ public class DBHandler {
                 }
                 int i = 0;
                 for (int latest = allTweets.size() - 1; latest >= 0 && i < 10; latest--) {
-                    if(tweets.contains(latest)) {
+                    if (tweets.contains(latest)) {
                         last10.add(allTweets.get(latest));
-                        i ++;
+                        i++;
                     }
                 }
             }
@@ -165,7 +209,7 @@ public class DBHandler {
 
         HashSet<String> subscriptions;
         synchronized (this.subscriptionsDB) {
-             subscriptions = this.subscriptionsDB.get(username);
+            subscriptions = this.subscriptionsDB.get(username);
         }
 
         synchronized (this.tweetsDB) {
@@ -178,9 +222,9 @@ public class DBHandler {
                 }
                 int i = 0;
                 for (int latest = allTweets.size() - 1; latest >= 0 && i < 10; latest--) {
-                    if(tweets.contains(latest)) {
+                    if (tweets.contains(latest)) {
                         last10.add(allTweets.get(latest));
-                        i ++;
+                        i++;
                     }
                 }
             }
@@ -195,12 +239,40 @@ public class DBHandler {
      * @return All the topics subscribed
      */
     public HashSet<String> getTopics(String username) {
-        synchronized (subscriptionsDB) {
+        synchronized (this.subscriptionsDB) {
             HashSet<String> subscriptions = this.subscriptionsDB.get(username);
             if (subscriptions == null)
                 return new HashSet<>();
 
             return subscriptions;
         }
+    }
+
+    /**
+     * @return the allTweets
+     */
+    public ArrayList<Tweet> getAllTweets() {
+        return allTweets;
+    }
+
+    /**
+     * @return the tweetsDB
+     */
+    public HashMap<String, ArrayList<Integer>> getTweetsDB() {
+        return tweetsDB;
+    }
+
+    /**
+     * @return the subscriptionsDB
+     */
+    public HashMap<String, HashSet<String>> getSubscriptionsDB() {
+        return subscriptionsDB;
+    }
+
+    /**
+     * @return the servers
+     */
+    public HashSet<Address> getServers() {
+        return servers;
     }
 }

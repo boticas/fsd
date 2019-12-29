@@ -2,7 +2,6 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -101,7 +100,7 @@ public class Client {
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
-            System.out.println("Indique o endereço do cliente e os do servidor (ip:porta)");
+            System.out.println("Indique o endereço do cliente e o do servidor (ip:porta)");
             System.exit(1);
         }
 
@@ -112,7 +111,7 @@ public class Client {
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
                 .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
-                .addType(Log.Status.class).build();
+                .addType(Log.Status.class).addType(ServerJoin.class).addType(ServerJoinResponse.class).build();
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         ms.registerHandler("result", (a, b) -> {
@@ -153,24 +152,12 @@ public class Client {
                         System.out.println("Sorry, try again later.");
                     break;
                 case 2:
-                    try {
-                        res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
+                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
                     SubscribeTopics topics = subscribeTopics(serializer.decode(res));
                     ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
                     break;
                 case 3:
-                    try {
-                        res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
+                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
                     getLast10(((Tweets) serializer.decode(res)).getTweets());
                     break;
                 case 4:

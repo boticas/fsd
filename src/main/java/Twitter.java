@@ -1,6 +1,8 @@
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
@@ -11,28 +13,59 @@ import io.atomix.utils.serializer.SerializerBuilder;
 
 public class Twitter {
     public static void main(String[] args) throws Exception {
-        if (args.length == 0) {
-            System.out.println("Indique o endereço deste servidor e os dos outros servidores (ip:porta)");
+        if (args.length != 1 && args.length != 2) {
+            System.out.println("Indique o endereço deste servidor e, opcionalmente, o de outro (ip:porta)");
             System.exit(1);
         }
 
         // Extract the addresses of the servers
         Address myAddress = Address.from(args[0]);
-        ArrayList<Address> allAddresses = new ArrayList<Address>(args.length);
-        for (int i = 0; i < args.length; i++)
-            allAddresses.add(Address.from(args[i]));
-
-        // Setup the infrastructure related to DB managment
-        DBHandler dbHandler = new DBHandler(myAddress.port());
+        HashSet<Address> allAddresses;
 
         // Serializer for all the messages
         Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
                 .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
                 .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
-                .addType(Log.Status.class).build();
+                .addType(Log.Status.class).addType(ServerJoin.class).addType(ServerJoinResponse.class).build();
 
         // Initialize the messaging service
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
+
+        // Setup the infrastructure related to DB managment
+        DBHandler dbHandler;
+        if (args.length == 2 && !DBHandler.checkDB(myAddress.port())) {
+            AtomicBoolean ok = new AtomicBoolean(false);
+            ServerJoinResponse sjr = new ServerJoinResponse();
+
+            ms.registerHandler("serverJoinResult", (a, b) -> {
+                ServerJoinResponse aux = serializer.decode(b);
+                sjr.set(aux);
+
+                synchronized (ok) {
+                    ok.set(true);
+                    ok.notify();
+                }
+            }, Executors.newFixedThreadPool(1));
+            ms.start().get();
+
+            ServerJoin sj = new ServerJoin(myAddress);
+            ms.sendAsync(Address.from(args[1]), "serverJoin", serializer.encode(sj));
+
+            synchronized (ok) {
+                while (!ok.get())
+                    ok.wait();
+            }
+
+            ms.stop().get();
+            ms.unregisterHandler("serverJoinResult");
+
+            dbHandler = new DBHandler(myAddress.port(), sjr.getServers(), sjr.getAllTweets(), sjr.getTweetsDB(),
+                    sjr.getSubscriptionsDB());
+            allAddresses = sjr.getServers();
+        } else {
+            dbHandler = new DBHandler(myAddress);
+            allAddresses = dbHandler.getServers();
+        }
 
         // Setup the infrastructure related to TPC and respective logs
         TPCHandler tpcHandler = new TPCHandler(allAddresses, myAddress.port(), serializer, ms, dbHandler);
@@ -46,7 +79,7 @@ public class Twitter {
     }
 
     private static void registerHandlers(ManagedMessagingService ms, ExecutorService executor, Serializer serializer,
-            Address myAddress, ArrayList<Address> allAddresses, DBHandler dbHandler, TPCHandler tpcHandler)
+            Address myAddress, HashSet<Address> allAddresses, DBHandler dbHandler, TPCHandler tpcHandler)
             throws Exception {
         ms.registerHandler("publishTweet", (a, b) -> {
             System.out.println("publishTweet");
@@ -67,6 +100,19 @@ public class Twitter {
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
                     st.getTopics(), myAddress, a);
+
+            tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, null);
+
+            for (Address address : allAddresses)
+                ms.sendAsync(address, "tpcPrepare", serializer.encode(prepare));
+        }, executor);
+
+        ms.registerHandler("serverJoin", (a, b) -> {
+            System.out.println("serverJoin");
+            ServerJoin sj = serializer.decode(b);
+
+            TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), sj, myAddress,
+                    a);
 
             tpcHandler.updateCoordinatorLog(prepare, Log.Status.PREPARE, null);
 
@@ -114,10 +160,19 @@ public class Twitter {
 
             boolean allAccepted = tpcHandler.updateCoordinatorLog(response, Log.Status.COMMIT, a);
             if (allAccepted) {
+                if (response.getServerJoin() == null) {
+                    Response result = new Response(true);
+                    ms.sendAsync(response.getRequester(), "result", serializer.encode(result));
+                } else {
+                    HashSet<Address> servers = new HashSet<>(allAddresses);
+                    servers.add(response.getRequester());
+                    ServerJoinResponse sjr = new ServerJoinResponse(servers, dbHandler.getAllTweets(),
+                            dbHandler.getTweetsDB(), dbHandler.getSubscriptionsDB());
+                    ms.sendAsync(response.getRequester(), "serverJoinResult", serializer.encode(sjr));
+                }
+
                 for (Address address : allAddresses)
                     ms.sendAsync(address, "tpcCommit", serializer.encode(response));
-                Response result = new Response(true);
-                ms.sendAsync(response.getRequester(), "result", serializer.encode(result));
             }
         }, executor);
 
@@ -127,9 +182,8 @@ public class Twitter {
 
             tpcHandler.updateCoordinatorLog(response, Log.Status.ABORT, a);
 
-            for (Address address : allAddresses) {
+            for (Address address : allAddresses)
                 ms.sendAsync(address, "tpcRollback", serializer.encode(response));
-            }
             Response result = new Response(false);
             ms.sendAsync(response.getRequester(), "result", serializer.encode(result));
         }, executor);

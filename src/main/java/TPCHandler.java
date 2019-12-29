@@ -22,7 +22,7 @@ public class TPCHandler {
         ONGOING, COMMITED, ABORTED
     }
 
-    private ArrayList<Address> servers;
+    private HashSet<Address> servers;
     private Serializer serializer;
     private ManagedMessagingService ms;
     private DBHandler dbHandler;
@@ -40,7 +40,7 @@ public class TPCHandler {
 
     private HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>> pendingTransactions;
 
-    public TPCHandler(ArrayList<Address> servers, int port, Serializer serializer, ManagedMessagingService ms,
+    public TPCHandler(HashSet<Address> servers, int port, Serializer serializer, ManagedMessagingService ms,
             DBHandler dbHandler) {
         this.servers = servers;
         this.serializer = serializer;
@@ -50,21 +50,23 @@ public class TPCHandler {
         this.totalOrderCounter = 0;
 
         this.coordinatorSJ = SegmentedJournal.<Log>builder().withName("coordinatorLog-" + port)
-                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(Log.class).addType(Log.Status.class).addType(Address.class).build())
+                .withSerializer(
+                        new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class).addType(Log.class)
+                                .addType(Log.Status.class).addType(Address.class).addType(ServerJoin.class).build())
                 .build();
         this.coordinatorSJW = coordinatorSJ.writer();
         this.coordinatorTPCs = new HashMap<>();
 
         this.serverSJ = SegmentedJournal.<Log>builder().withName("serverLog-" + port)
-                .withSerializer(new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class)
-                        .addType(Log.class).addType(Log.Status.class).addType(Address.class).build())
+                .withSerializer(
+                        new SerializerBuilder().addType(Tweet.class).addType(TwoPhaseCommit.class).addType(Log.class)
+                                .addType(Log.Status.class).addType(Address.class).addType(ServerJoin.class).build())
                 .build();
         this.serverSJW = serverSJ.writer();
 
         this.pendingTransactions = new HashMap<>();
-        for (int i = 0; i < this.servers.size(); i++)
-            this.pendingTransactions.put(this.servers.get(i), new TreeMap<>());
+        for (Address address : this.servers)
+            this.pendingTransactions.put(address, new TreeMap<>());
     }
 
     public void applyPendingLog() {
@@ -229,8 +231,13 @@ public class TPCHandler {
         for (TwoPhaseCommit tpc : tpcsToApply) {
             if (tpc.getTweet() != null)
                 this.dbHandler.addTweet(tpc.getTweet());
-            else
+            else if (tpc.getUsername() != null && tpc.getTopics() != null)
                 this.dbHandler.updateSubscriptions(tpc.getUsername(), tpc.getTopics());
+            else {
+                Address address = tpc.getServerJoin().getAddress();
+                this.dbHandler.addServer(address);
+                this.pendingTransactions.put(address, new TreeMap<>());
+            }
         }
     }
 
@@ -283,17 +290,13 @@ public class TPCHandler {
                 while (true) {
                     // Find the message with the lower count or stop if there isn't at least one
                     // from each server
+                    boolean heartbeatNeeded = false;
                     int sCount = Integer.MAX_VALUE;
                     Address sAddress = new Address("255.255.255.255", 65535);
                     ArrayList<Address> emptyAddresses = new ArrayList<>();
                     for (Address a : this.pendingTransactions.keySet()) {
                         TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>> pt = this.pendingTransactions.get(a);
                         if (pt.size() == 0) {
-                            if (tpc.isHeartbeat()) {
-                                this.applyTpcs(tpcsToApply);
-                                return;
-                            }
-
                             emptyAddresses.add(a);
                             continue;
                         }
@@ -305,21 +308,30 @@ public class TPCHandler {
                             if (a.toString().compareTo(sAddress.toString()) < 0)
                                 sAddress = a;
                         }
+
+                        if (!heartbeatNeeded) {
+                            for (Map.Entry<Integer, Pair<TPCStatus, TwoPhaseCommit>> e : pt.entrySet()) {
+                                if (sAddress != a || e.getKey() != sCount) {
+                                    if (!e.getValue().getValue().isHeartbeat()) {
+                                        heartbeatNeeded = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    if (!tpc.isHeartbeat()) {
-                        if (emptyAddresses.size() == this.servers.size()) {
-                            this.applyTpcs(tpcsToApply);
-                            return;
-                        }
+                    if (emptyAddresses.size() == this.servers.size()) {
+                        this.applyTpcs(tpcsToApply);
+                        return;
+                    }
 
-                        if (emptyAddresses.size() > 0) {
-                            for (Address address : emptyAddresses)
-                                this.ms.sendAsync(address, "tpcGetHeartbeat", serializer.encode(null));
+                    if (emptyAddresses.size() > 0 && heartbeatNeeded) {
+                        for (Address address : emptyAddresses)
+                            this.ms.sendAsync(address, "tpcGetHeartbeat", serializer.encode(null));
 
-                            this.applyTpcs(tpcsToApply);
-                            return;
-                        }
+                        this.applyTpcs(tpcsToApply);
+                        return;
                     }
 
                     // Check if the smallest transaction is still being processed or is an heartbeat

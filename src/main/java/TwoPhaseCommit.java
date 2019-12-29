@@ -11,14 +11,16 @@ public class TwoPhaseCommit {
     private Address coordinator;
     private Address requester;
 
-    /* Either tweet or username/topics are set; the others must be null */
+    /* Either tweet, username/topics or serverJoin are set; the others must be null */
     private Tweet tweet;
 
     private String username;
     private HashSet<String> topics;
 
+    private ServerJoin serverJoin;
+
     /**
-     * Parameterized class builder.
+     * Constructor for an heartbeat
      * 
      * @param count
      * @param coordinator
@@ -30,7 +32,7 @@ public class TwoPhaseCommit {
     }
 
     /**
-     * Parameterized class builder.
+     * Constructor for a tweet addition
      * 
      * @param count
      * @param tweet
@@ -44,7 +46,7 @@ public class TwoPhaseCommit {
     }
 
     /**
-     * Parameterized class builder.
+     * Constructor for subscriptions update
      * 
      * @param count
      * @param username
@@ -57,6 +59,20 @@ public class TwoPhaseCommit {
         HashSet<String> aux = new HashSet<String>(topics.size());
         topics.forEach((t) -> aux.add(t));
         this.topics = aux;
+        this.coordinator = coordinator;
+        this.requester = requester;
+    }
+
+    /**
+     * Constructor for a server addition
+     * 
+     * @param count
+     * @param tweet
+     * @param coordinator
+     */
+    public TwoPhaseCommit(int count, ServerJoin serverJoin, Address coordinator, Address requester) {
+        this.count = count;
+        this.serverJoin = serverJoin;
         this.coordinator = coordinator;
         this.requester = requester;
     }
@@ -123,8 +139,18 @@ public class TwoPhaseCommit {
         return coordinator;
     }
 
+    /**
+     * @return the requester
+     */
     public Address getRequester() {
         return requester;
+    }
+
+    /**
+     * @return the serverJoin
+     */
+    public ServerJoin getServerJoin() {
+        return serverJoin;
     }
 
     /**
@@ -147,7 +173,9 @@ public class TwoPhaseCommit {
 
         if (this.tweet != null)
             return this.tweet.equals(tpc.tweet);
-        else
+        else if (this.username != null && this.topics != null)
             return this.username.equals(tpc.username) && this.topics.equals(tpc.topics);
+        else
+            return this.serverJoin.equals(tpc.serverJoin);
     }
 }
