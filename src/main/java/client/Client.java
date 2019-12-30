@@ -50,16 +50,24 @@ public class Client {
         return res;
     }
 
+    private static void waitConfirmation() {
+        System.out.print("Press ENTER to continue...");
+        in.readLine();
+    }
+
     private static void clearView() {
         System.out.print("\033[H\033[2J");
         System.out.flush();
     }
 
     private static void getLast10(ArrayList<Tweet> tweets) throws IOException {
+        if (tweets.size() == 0) {
+            System.out.println("There are no tweets for your subscriptions or you don't have any subscriptions");
+        }
         for (Tweet tweet : tweets) {
             System.out.println(tweet.getUsername() + ": " + tweet.getContent());
         }
-        in.readLine();
+        waitConfirmation();
     }
 
     private static SubscribeTopics subscribeTopics(Topics currentTopics) {
@@ -135,7 +143,7 @@ public class Client {
         while (!exit) {
             StringBuilder main = new StringBuilder();
             main.append("What do you want to do? (Select number)\n");
-            main.append("1 - common.Tweet\n");
+            main.append("1 - Tweet\n");
             main.append("2 - Subscribe\n");
             main.append("3 - Last 10 from all subscribed topics\n");
             main.append("4 - Last 10 from specific topics\n");
@@ -163,7 +171,7 @@ public class Client {
                         System.out.println("Thanks for sharing!");
                     else
                         System.out.println("Sorry, try again later.");
-                    Thread.sleep(2000);
+                    waitConfirmation();
                     break;
                 case 2:
                     res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
@@ -178,7 +186,7 @@ public class Client {
                         System.out.println("Subscriptions updated!");
                     else
                         System.out.println("Sorry, try again later.");
-                    Thread.sleep(2000);
+                    waitConfirmation();
                     break;
                 case 3:
                     res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();

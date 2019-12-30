@@ -180,6 +180,9 @@ public class DBHandler {
         HashSet<String> subscriptions;
         synchronized (this.subscriptionsDB) {
             subscriptions = this.subscriptionsDB.get(username);
+            if (subscriptions == null) {
+                return last10;
+            }
         }
 
         synchronized (this.tweetsDB) {
