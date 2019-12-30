@@ -1,9 +1,11 @@
+package common;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
 /**
- * Tweets
+ * common.Tweets
  */
 public class Topics {
     private HashSet<String> topics;

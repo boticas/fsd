@@ -1,5 +1,7 @@
+package server;
+
 /**
- * Log
+ * server.Log
  */
 public class Log {
     public enum Status {

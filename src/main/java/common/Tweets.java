@@ -1,7 +1,9 @@
+package common;
+
 import java.util.ArrayList;
 
 /**
- * Tweets
+ * common.Tweets
  */
 public class Tweets {
     private ArrayList<Tweet> tweets;

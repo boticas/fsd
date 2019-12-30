@@ -1,5 +1,7 @@
+package common;
+
 /**
- * GetTopics
+ * common.GetTopics
  */
 public class GetTopics {
     private String username;

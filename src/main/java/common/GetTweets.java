@@ -1,7 +1,9 @@
+package common;
+
 import java.util.ArrayList;
 
 /**
- * GetTweets
+ * common.GetTweets
  */
 public class GetTweets {
     /*

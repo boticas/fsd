@@ -1,3 +1,5 @@
+package client;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,7 +14,8 @@ import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
-import io.atomix.utils.serializer.SerializerBuilder;
+
+import common.*;
 
 /**
  * Client
@@ -113,10 +116,7 @@ public class Client {
         Address server = Address.from(args[1]);
 
         ExecutorService executor = Executors.newFixedThreadPool(1);
-        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
-                .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
-                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
-                .addType(Log.Status.class).addType(ServerJoin.class).addType(ServerJoinResponse.class).build();
+        Serializer serializer = TwitterSerializer.serializer;
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
         Response ok = new Response(false);
@@ -135,7 +135,7 @@ public class Client {
         while (!exit) {
             StringBuilder main = new StringBuilder();
             main.append("What do you want to do? (Select number)\n");
-            main.append("1 - Tweet\n");
+            main.append("1 - common.Tweet\n");
             main.append("2 - Subscribe\n");
             main.append("3 - Last 10 from all subscribed topics\n");
             main.append("4 - Last 10 from specific topics\n");

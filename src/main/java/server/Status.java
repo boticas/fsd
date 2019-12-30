@@ -1,5 +1,7 @@
+package server;
+
 /**
- * Status
+ * server.Status
  */
 public class Status {
     private TwoPhaseCommit tpc;

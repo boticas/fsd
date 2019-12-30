@@ -1,7 +1,9 @@
+package common;
+
 import java.util.HashSet;
 
 /**
- * SubscribeTopics
+ * common.SubscribeTopics
  */
 public class SubscribeTopics {
     private HashSet<String> topics;

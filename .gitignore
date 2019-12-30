@@ -21,6 +21,7 @@ hs_err_pid*
 
 #others
 .idea
+.vscode
 
 # Server's logs
 *.log

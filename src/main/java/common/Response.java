@@ -1,5 +1,7 @@
+package common;
+
 /**
- * Response
+ * common.Response
  */
 public class Response {
     private boolean success;

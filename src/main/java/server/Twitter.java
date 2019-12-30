@@ -1,15 +1,19 @@
+package server;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import common.*;
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
-import io.atomix.utils.serializer.SerializerBuilder;
+
+import serializer.*;
 
 public class Twitter {
     public static void main(String[] args) throws Exception {
@@ -23,11 +27,7 @@ public class Twitter {
         HashSet<Address> allAddresses;
 
         // Serializer for all the messages
-        Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
-                .addType(SubscribeTopics.class).addType(GetTweets.class).addType(GetTopics.class)
-                .addType(Response.class).addType(TwoPhaseCommit.class).addType(Address.class).addType(Status.class)
-                .addType(Log.Status.class).addType(ServerJoin.class).addType(ServerJoinResponse.class).build();
-
+        Serializer serializer = TwitterSerializer.serializer;
         // Initialize the messaging service
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
 

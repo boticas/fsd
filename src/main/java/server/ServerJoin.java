@@ -1,7 +1,9 @@
+package server;
+
 import io.atomix.utils.net.Address;
 
 /**
- * ServerJoin
+ * server.ServerJoin
  */
 public class ServerJoin {
     private Address address;

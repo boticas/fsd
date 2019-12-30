@@ -1,11 +1,14 @@
+package server;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import common.Tweet;
 import io.atomix.utils.net.Address;
 
 /**
- * ServerJoinResponse
+ * server.ServerJoinResponse
  */
 public class ServerJoinResponse {
     private HashSet<Address> servers;

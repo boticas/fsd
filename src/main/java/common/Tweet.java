@@ -1,8 +1,10 @@
+package common;
+
 import java.io.Serializable;
 import java.util.HashSet;
 
 /**
- * Tweet
+ * common.Tweet
  * 
  * Class that contains all the information about a single tweet posted by a user
  */

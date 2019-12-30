@@ -1,9 +1,13 @@
+package server;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 
+import common.Response;
+import common.Tweet;
 import org.apache.commons.math3.util.Pair;
 
 import io.atomix.cluster.messaging.ManagedMessagingService;
@@ -15,7 +19,7 @@ import io.atomix.utils.serializer.Serializer;
 import io.atomix.utils.serializer.SerializerBuilder;
 
 /**
- * TPCHandler
+ * server.TPCHandler
  */
 public class TPCHandler {
     private enum TPCStatus {
@@ -219,7 +223,7 @@ public class TPCHandler {
                     return true;
                 } else
                     return false;
-            } else { // status == Log.Status.ABORT
+            } else { // status == server.Log.server.Status.ABORT
                 this.writeCoordinatorLog(log);
                 this.coordinatorTPCs.put(log, new Pair<>(null, TPCStatus.ABORTED));
                 return false;
@@ -271,7 +275,7 @@ public class TPCHandler {
                 if (tpc.getCount() >= this.totalOrderCounter)
                     this.totalOrderCounter = tpc.getCount() + 1;
             }
-        } else { // status == (Log.Status.COMMIT || Log.Status.ABORT || Log.Status.HEARTBEAT)
+        } else { // status == (server.Log.server.Status.COMMIT || server.Log.server.Status.ABORT || server.Log.server.Status.HEARTBEAT)
             synchronized (this.pendingTransactions) {
                 if (tpc.isHeartbeat()) {
                     synchronized (this.totalOrderCounter) {
