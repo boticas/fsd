@@ -70,18 +70,35 @@ public class Client {
         waitConfirmation();
     }
 
+    private static void getLast10PerTopic(ArrayList<Tweet> tweets) throws IOException {
+        if (tweets.size() == 0) {
+            System.out.println("There are no tweets for the requested topics");
+        }
+        for (Tweet tweet : tweets) {
+            System.out.println(tweet.getUsername() + ": " + tweet.getContent());
+        }
+        waitConfirmation();
+    }
+
     private static void viewTopics(Topics currentTopics) {
-        System.out.println("You are currently subscribed to:");
-        for (String t : currentTopics.getTopics()) {
-            System.out.println(t);
+        if(currentTopics.getTopics().size() == 0) {
+            System.out.println("You are not subscribed to any topics yet");
+        } else {
+            System.out.println("You are currently subscribed to:");
+            for (String t : currentTopics.getTopics())
+                System.out.println(t);
         }
     }
 
     private static SubscribeTopics subscribeTopics(Topics currentTopics) {
-        System.out.println("You are currently subscribed to:");
-        for (String t : currentTopics.getTopics()) {
-            System.out.println(t);
+        if(currentTopics.getTopics().size() == 0) {
+            System.out.println("You are not subscribed to any topics yet");
+        } else {
+            System.out.println("You are currently subscribed to:");
+            for (String t : currentTopics.getTopics())
+                System.out.println(t);
         }
+
         System.out.println("What new topics do you want to subscribe?");
         String input = "";
         try {
