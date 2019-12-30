@@ -1,6 +1,10 @@
+package common;
+
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
 import io.atomix.utils.serializer.SerializerBuilder;
+
+import server.*;
 
 public class TwitterSerializer {
 	public static Serializer serializer = new SerializerBuilder().addType(Tweet.class).addType(Topics.class).addType(Tweets.class)
