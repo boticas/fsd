@@ -13,8 +13,6 @@ import io.atomix.cluster.messaging.impl.NettyMessagingService;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
 
-import serializer.*;
-
 public class Twitter {
     public static void main(String[] args) throws Exception {
         if (args.length != 1 && args.length != 2) {

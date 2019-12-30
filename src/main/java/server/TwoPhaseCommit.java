@@ -1,4 +1,8 @@
+package server;
+
 import java.util.HashSet;
+
+import common.Tweet;
 
 import io.atomix.utils.net.Address;
 
@@ -67,8 +71,9 @@ public class TwoPhaseCommit {
      * Constructor for a server addition
      * 
      * @param count
-     * @param tweet
      * @param coordinator
+     * @param serverJoin
+     * @param requester
      */
     public TwoPhaseCommit(int count, ServerJoin serverJoin, Address coordinator, Address requester) {
         this.count = count;
