@@ -51,7 +51,8 @@ public class Client {
     }
 
     private static void waitConfirmation() throws IOException {
-        System.out.print("Press ENTER to continue...");
+        System.out.print("\nPress ENTER to continue...");
+        System.out.flush();
         in.readLine();
     }
 
