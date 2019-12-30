@@ -50,7 +50,7 @@ public class Client {
         return res;
     }
 
-    private static void waitConfirmation() {
+    private static void waitConfirmation() throws IOException {
         System.out.print("Press ENTER to continue...");
         in.readLine();
     }
