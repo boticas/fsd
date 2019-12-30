@@ -186,7 +186,9 @@ public class DBHandler {
             synchronized (this.allTweets) {
                 HashSet<Integer> tweets = new HashSet<>();
                 for (String topic : subscriptions) {
-                    tweets.addAll(tweetsDB.get(topic));
+                    ArrayList<Integer> tweetsForTopic = tweetsDB.get(topic);
+                    if (tweetsForTopic != null)
+                        tweets.addAll(tweetsForTopic);
                 }
                 int i = 0;
                 for (int latest = allTweets.size() - 1; latest >= 0 && i < 10; latest--) {
