@@ -21,9 +21,8 @@ import common.*;
  * Client
  */
 public class Client {
-
     private static BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-    private static String username = "User";
+    private static String username;
 
     /**
      * Ler int
@@ -71,6 +70,13 @@ public class Client {
         waitConfirmation();
     }
 
+    private static void viewTopics(Topics currentTopics) {
+        System.out.println("You are currently subscribed to:");
+        for (String t : currentTopics.getTopics()) {
+            System.out.println(t);
+        }
+    }
+
     private static SubscribeTopics subscribeTopics(Topics currentTopics) {
         System.out.println("You are currently subscribed to:");
         for (String t : currentTopics.getTopics()) {
@@ -93,7 +99,6 @@ public class Client {
         }
         SubscribeTopics res = new SubscribeTopics(topicsList, username);
         return res;
-        
     }
     
     private static Tweet publishTweet() {
@@ -121,6 +126,11 @@ public class Client {
             System.exit(1);
         }
 
+        System.out.println("Welcome to Twitter");
+        System.out.print("Please introduce your username: ");
+        System.out.flush();
+        username = in.readLine();
+
         Address myAddress = Address.from(args[0]);
         Address server = Address.from(args[1]);
 
@@ -146,9 +156,10 @@ public class Client {
             main.append("What do you want to do? (Select number)\n");
             main.append("1 - Tweet\n");
             main.append("2 - Subscribe\n");
-            main.append("3 - Last 10 from all subscribed topics\n");
-            main.append("4 - Last 10 from specific topics\n");
-            main.append("5 - Exit\n");
+            main.append("3 - View subscriptions\n");
+            main.append("4 - Last 10 from all subscribed topics\n");
+            main.append("5 - Last 10 from specific topics\n");
+            main.append("6 - Exit\n");
 
             clearView();
             System.out.println(main);
@@ -156,7 +167,7 @@ public class Client {
             int escolha;
             do {
                 escolha = readInt();
-            } while (escolha < 1 || escolha > 5);
+            } while (escolha < 1 || escolha > 6);
 
             byte[] res = null;
             switch (escolha) {
@@ -190,10 +201,15 @@ public class Client {
                     waitConfirmation();
                     break;
                 case 3:
+                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
+                    viewTopics(serializer.decode(res));
+                    waitConfirmation();
+                    break;
+                case 4:
                     res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
                     getLast10(((Tweets) serializer.decode(res)).getTweets());
                     break;
-                case 4:
+                case 5:
                     System.out.println("What topics do you want to see?");
                     ArrayList<String> topicsList = new ArrayList<>();
                     String input = "";
@@ -204,7 +220,6 @@ public class Client {
                     }
                     String[] topicsToSee = input.split(" ");
                     for (String word : topicsToSee) {
-                        // Problema: Cortar pontuações nos extremos
                         if (word.charAt(0) == '#')
                             topicsList.add(word);
                         else
@@ -213,7 +228,7 @@ public class Client {
                     res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(topicsList, username))).get();
                     getLast10(((Tweets) serializer.decode(res)).getTweets());
                     break;
-                case 5:
+                case 6:
                     clearView();
                     exit = true;
                     System.exit(1);
