@@ -22,4 +22,13 @@ public class Response {
     public boolean getSuccess() {
         return this.success;
     }
+
+    /**
+     * Set - success.
+     * 
+     * @param newSuccess 
+     */
+    public void setSuccess(boolean newSuccess) {
+        this.success = newSuccess;
+    }
 }

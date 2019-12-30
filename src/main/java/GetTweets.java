@@ -41,7 +41,7 @@ public class GetTweets {
      */
     public ArrayList<String> getTopics() {
         if (this.topics == null)
-            return new ArrayList<>();
+            return topics;
 
         ArrayList<String> res = new ArrayList<>(this.topics.size());
         this.topics.forEach((t) -> res.add(t));

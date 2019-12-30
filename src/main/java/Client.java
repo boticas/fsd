@@ -1,9 +1,11 @@
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
@@ -17,6 +19,7 @@ import io.atomix.utils.serializer.SerializerBuilder;
  */
 public class Client {
 
+    private static BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
     private static String username = "User";
 
     /**
@@ -49,8 +52,11 @@ public class Client {
         System.out.flush();
     }
 
-    private static void getLast10(ArrayList<Tweet> tweets) {
-        // TODO
+    private static void getLast10(ArrayList<Tweet> tweets) throws IOException {
+        for (Tweet tweet : tweets) {
+            System.out.println(tweet.getUsername() + ": " + tweet.getContent());
+        }
+        in.readLine();
     }
 
     private static SubscribeTopics subscribeTopics(Topics currentTopics) {
@@ -59,7 +65,6 @@ public class Client {
             System.out.println(t);
         }
         System.out.println("What new topics do you want to subscribe?");
-        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String input = "";
         try {
             input = in.readLine();
@@ -69,15 +74,16 @@ public class Client {
         String[] topics = input.split(" ");
         HashSet<String> topicsList = new HashSet<String>(currentTopics.getTopics());
         for (String word : topics) {
-            // Problema: Cortar pontuações nos extremos
             if (word.charAt(0) == '#')
                 topicsList.add(word);
+            else
+                topicsList.add("#" + word);
         }
         SubscribeTopics res = new SubscribeTopics(topicsList, username);
         return res;
-
+        
     }
-
+    
     private static Tweet publishTweet() {
         System.out.println("Share something with the world!");
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
@@ -87,11 +93,10 @@ public class Client {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String[] words = tweet.split(" ");
+        String[] words = tweet.split("[ ;\\.\\?!:,]+");
         HashSet<String> topics = new HashSet<>();
         for (String word : words) {
-            // Problema: Cortar pontuações nos extremos
-            if (word.charAt(0) == '#')
+            if (word.charAt(0) == '#') 
                 topics.add(word);
         }
         Tweet t = new Tweet(username, tweet, topics);
@@ -114,12 +119,15 @@ public class Client {
                 .addType(Log.Status.class).addType(ServerJoin.class).addType(ServerJoinResponse.class).build();
 
         ManagedMessagingService ms = new NettyMessagingService("twitter", myAddress, new MessagingConfig());
+        Response ok = new Response(false);
+        AtomicBoolean ab = new AtomicBoolean(false);
         ms.registerHandler("result", (a, b) -> {
-            Response res = serializer.decode(b);
-            if (res.getSuccess())
-                System.out.println("Thanks for sharing!");
-            else
-                System.out.println("Sorry, try again later.");
+            synchronized (ab) {
+                ab.set(true);
+                Response x = serializer.decode(b);
+                ok.setSuccess(x.getSuccess());
+                ab.notify();
+            }
         }, executor);
         ms.start().get();
 
@@ -129,8 +137,9 @@ public class Client {
             main.append("What do you want to do? (Select number)\n");
             main.append("1 - Tweet\n");
             main.append("2 - Subscribe\n");
-            main.append("3 - Last 10\n");
-            main.append("4 - Exit\n");
+            main.append("3 - Last 10 from all subscribed topics\n");
+            main.append("4 - Last 10 from specific topics\n");
+            main.append("5 - Exit\n");
 
             clearView();
             System.out.println(main);
@@ -138,29 +147,64 @@ public class Client {
             int escolha;
             do {
                 escolha = readInt();
-            } while (escolha < 1 || escolha > 4);
+            } while (escolha < 1 || escolha > 5);
 
             byte[] res = null;
             switch (escolha) {
                 case 1:
                     Tweet t = publishTweet();
-                    res = ms.sendAndReceive(server, "publishTweet", serializer.encode(t)).get();
-                    Response response = serializer.decode(res);
-                    if (response.getSuccess())
+                    ms.sendAsync(server, "publishTweet", serializer.encode(t));
+                    synchronized (ab) {
+                        while (!ab.get())
+                            ab.wait();
+                        ab.set(false);
+                    }
+                    if (ok.getSuccess())
                         System.out.println("Thanks for sharing!");
                     else
                         System.out.println("Sorry, try again later.");
+                    Thread.sleep(2000);
                     break;
                 case 2:
                     res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
                     SubscribeTopics topics = subscribeTopics(serializer.decode(res));
                     ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
+                    synchronized (ab) {
+                        while (!ab.get())
+                            ab.wait();
+                        ab.set(false);
+                    }
+                    if (ok.getSuccess())
+                        System.out.println("Subscriptions updated!");
+                    else
+                        System.out.println("Sorry, try again later.");
+                    Thread.sleep(2000);
                     break;
                 case 3:
                     res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
                     getLast10(((Tweets) serializer.decode(res)).getTweets());
                     break;
                 case 4:
+                    System.out.println("What topics do you want to see?");
+                    ArrayList<String> topicsList = new ArrayList<>();
+                    String input = "";
+                    try {
+                        input = in.readLine();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    String[] topicsToSee = input.split(" ");
+                    for (String word : topicsToSee) {
+                        // Problema: Cortar pontuações nos extremos
+                        if (word.charAt(0) == '#')
+                            topicsList.add(word);
+                        else
+                            topicsList.add("#" + word);
+                    }
+                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(topicsList, username))).get();
+                    getLast10(((Tweets) serializer.decode(res)).getTweets());
+                    break;
+                case 5:
                     clearView();
                     exit = true;
                     System.exit(1);
