@@ -20,13 +20,13 @@ public class DBHandler {
     private int port;
     private HashSet<Address> servers;
     private ArrayList<Tweet> allTweets;
-    private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para indices de tweets desse tópico
-    private HashMap<String, HashSet<String>> subscriptionsDB; // username para tópicos subscritos
+    private HashMap<String, ArrayList<Integer>> tweetsDB; // Map of topics to indices of tweets on that topics
+    private HashMap<String, HashSet<String>> subscriptionsDB; // Map of usernames to subscribed topics
 
     /**
      * Parameterized class builder.
      * 
-     * @param port
+     * @param address
      */
     public DBHandler(Address address) {
         this.port = address.port();
@@ -43,6 +43,10 @@ public class DBHandler {
      * Parameterized class builder.
      * 
      * @param port
+     * @param servers
+     * @param allTweets
+     * @param tweetsDB
+     * @param subscriptionsDB
      */
     public DBHandler(int port, HashSet<Address> servers, ArrayList<Tweet> allTweets,
             HashMap<String, ArrayList<Integer>> tweetsDB, HashMap<String, HashSet<String>> subscriptionsDB) {
@@ -58,8 +62,8 @@ public class DBHandler {
     /**
      * Method that checks if there is a database.
      * 
-     * @param
-     * @return
+     * @param port
+     * @return boolean
      */
     public static boolean checkDB(int port) {
         File aux = new File("db-" + port + ".data");
@@ -69,7 +73,6 @@ public class DBHandler {
     /**
      * Method that initializes the database.
      * 
-     * @param
      * @return
      */
     private void initializeDB() {
@@ -89,31 +92,32 @@ public class DBHandler {
             System.out.println("No database found. Starting with an empty one");
         } catch (Exception e) {
             e.printStackTrace();
+            System.exit(-1);
         }
     }
 
     /**
      * Method that saves the database.
      * 
-     * @param
      * @return
      */
     public void saveDB() {
         try {
             FileOutputStream f = new FileOutputStream("db-" + this.port + ".data");
             ObjectOutputStream o = new ObjectOutputStream(f);
-
+    
             ArrayList<String> addresses = new ArrayList<>();
             this.servers.forEach((a) -> addresses.add(a.toString()));
             o.writeObject(addresses);
             o.writeObject(this.allTweets);
             o.writeObject(this.tweetsDB);
             o.writeObject(this.subscriptionsDB);
-
+    
             o.close();
             f.close();
         } catch (Exception e) {
             e.printStackTrace();
+            System.exit(-1);
         }
     }
 
@@ -158,8 +162,7 @@ public class DBHandler {
 
     /**
      * 
-     * @param username
-     * @param topics
+     * @param address
      */
     public void addServer(Address address) {
         synchronized (this.servers) {
@@ -220,7 +223,7 @@ public class DBHandler {
                 HashSet<Integer> tweets = new HashSet<>();
                 for (String topic : topics) {
                     ArrayList<Integer> tweetsForTopic = tweetsDB.get(topic);
-                    if(tweetsForTopic != null)
+                    if (tweetsForTopic != null)
                         tweets.addAll(tweetsForTopic);
                 }
                 int i = 0;

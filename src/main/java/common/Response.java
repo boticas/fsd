@@ -18,7 +18,6 @@ public class Response {
     /**
      * Get - success.
      * 
-     * @param
      * @return success status
      */
     public boolean getSuccess() {

@@ -23,29 +23,25 @@ public class Tweet implements Serializable {
     public Tweet(String username, String content, HashSet<String> topics) {
         this.username = username;
         this.content = content;
-        HashSet<String> aux = new HashSet<String>(topics.size());
-        topics.forEach((t) -> aux.add(t));
-        this.topics = aux;
+        this.topics = topics;
     }
 
     /**
      * Get - username.
      * 
-     * @param
      * @return username
      */
     public String getUsername() {
-        return username;
+        return this.username;
     }
 
     /**
      * Get - content.
      * 
-     * @param
      * @return content
      */
     public String getContent() {
-        return content;
+        return this.content;
     }
 
     /**
@@ -55,19 +51,7 @@ public class Tweet implements Serializable {
      * @return topics
      */
     public HashSet<String> getTopics() {
-        HashSet<String> res = new HashSet<String>(this.topics.size());
-        this.topics.forEach((t) -> res.add(t));
-        return res;
-    }
-
-    /**
-     * Method that checks if the current tweet belongs to a certain topic.
-     * 
-     * @param topic
-     * @return boolean
-     */
-    public boolean hasTopic(String topic) {
-        return this.topics.contains(topic);
+        return this.topics;
     }
 
     /**

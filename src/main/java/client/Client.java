@@ -9,16 +9,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import common.GetTopics;
+import common.GetTweets;
+import common.Response;
+import common.SubscribeTopics;
+import common.Topics;
+import common.Tweet;
+import common.Tweets;
+import common.TwitterSerializer;
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
 import io.atomix.utils.net.Address;
 import io.atomix.utils.serializer.Serializer;
 
-import common.*;
-
 /**
- * Client
+ * client.Client
  */
 public class Client {
     private static BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
@@ -29,24 +35,14 @@ public class Client {
      * 
      * @return int
      */
-    private static int readInt() {
-        int res = 0;
-        BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+    private static int readInt() throws IOException {
         while (true) {
             try {
-                res = Integer.parseInt(in.readLine());
+                return Integer.parseInt(in.readLine());
             } catch (NumberFormatException exc) {
                 System.out.println("Please, enter a number");
-                continue;
-            } catch (Exception exc) {
-                exc.printStackTrace();
-                break;
             }
-
-            break;
         }
-
-        return res;
     }
 
     private static void waitConfirmation() throws IOException {
@@ -63,25 +59,23 @@ public class Client {
     private static void getLast10(ArrayList<Tweet> tweets) throws IOException {
         if (tweets.size() == 0) {
             System.out.println("There are no tweets for your subscriptions or you don't have any subscriptions");
+        } else {
+            for (Tweet tweet : tweets)
+                System.out.println(tweet.getUsername() + ": " + tweet.getContent());
         }
-        for (Tweet tweet : tweets) {
-            System.out.println(tweet.getUsername() + ": " + tweet.getContent());
-        }
-        waitConfirmation();
     }
 
     private static void getLast10PerTopic(ArrayList<Tweet> tweets) throws IOException {
         if (tweets.size() == 0) {
             System.out.println("There are no tweets for the requested topics");
+        } else {
+            for (Tweet tweet : tweets)
+                System.out.println(tweet.getUsername() + ": " + tweet.getContent());
         }
-        for (Tweet tweet : tweets) {
-            System.out.println(tweet.getUsername() + ": " + tweet.getContent());
-        }
-        waitConfirmation();
     }
 
     private static void viewTopics(Topics currentTopics) {
-        if(currentTopics.getTopics().size() == 0) {
+        if (currentTopics.getTopics().size() == 0) {
             System.out.println("You are not subscribed to any topics yet");
         } else {
             System.out.println("You are currently subscribed to:");
@@ -90,8 +84,8 @@ public class Client {
         }
     }
 
-    private static SubscribeTopics subscribeTopics(Topics currentTopics) {
-        if(currentTopics.getTopics().size() == 0) {
+    private static SubscribeTopics subscribeTopics(Topics currentTopics) throws IOException {
+        if (currentTopics.getTopics().size() == 0) {
             System.out.println("You are not subscribed to any topics yet");
         } else {
             System.out.println("You are currently subscribed to:");
@@ -100,41 +94,37 @@ public class Client {
         }
 
         System.out.println("What new topics do you want to subscribe?");
-        String input = "";
-        try {
-            input = in.readLine();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        String input = in.readLine();
         String[] topics = input.split(" ");
         HashSet<String> topicsList = new HashSet<String>(currentTopics.getTopics());
         for (String word : topics) {
+            if (word.length() == 0)
+                continue;
+
             if (word.charAt(0) == '#')
                 topicsList.add(word);
             else
                 topicsList.add("#" + word);
         }
-        SubscribeTopics res = new SubscribeTopics(topicsList, username);
-        return res;
+
+        return new SubscribeTopics(topicsList, username);
     }
-    
-    private static Tweet publishTweet() {
+
+    private static Tweet publishTweet() throws IOException {
         System.out.println("Share something with the world!");
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        String tweet = "";
-        try {
-            tweet = in.readLine();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        String tweet = in.readLine();
         String[] words = tweet.split("[ ;\\.\\?!:,]+");
         HashSet<String> topics = new HashSet<>();
         for (String word : words) {
-            if (word.charAt(0) == '#') 
+            if (word.length() == 0)
+                continue;
+
+            if (word.charAt(0) == '#')
                 topics.add(word);
         }
-        Tweet t = new Tweet(username, tweet, topics);
-        return t;
+
+        return new Tweet(username, tweet, topics);
     }
 
     public static void main(String[] args) throws Exception {
@@ -143,10 +133,11 @@ public class Client {
             System.exit(1);
         }
 
+        clearView();
         System.out.println("Welcome to Twitter");
         System.out.print("Please introduce your username: ");
         System.out.flush();
-        username = in.readLine();
+        username = in.readLine() + "aaa";
 
         Address myAddress = Address.from(args[0]);
         Address server = Address.from(args[1]);
@@ -167,8 +158,7 @@ public class Client {
         }, executor);
         ms.start().get();
 
-        boolean exit = false;
-        while (!exit) {
+        while (true) {
             StringBuilder main = new StringBuilder();
             main.append("What do you want to do? (Select number)\n");
             main.append("1 - Tweet\n");
@@ -186,7 +176,7 @@ public class Client {
                 escolha = readInt();
             } while (escolha < 1 || escolha > 6);
 
-            byte[] res = null;
+            byte[] res;
             switch (escolha) {
                 case 1:
                     Tweet t = publishTweet();
@@ -200,10 +190,10 @@ public class Client {
                         System.out.println("Thanks for sharing!");
                     else
                         System.out.println("Sorry, try again later.");
-                    waitConfirmation();
                     break;
                 case 2:
-                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
+                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor)
+                            .get();
                     SubscribeTopics topics = subscribeTopics(serializer.decode(res));
                     ms.sendAsync(server, "subscribeTopics", serializer.encode(topics));
                     synchronized (ab) {
@@ -215,12 +205,11 @@ public class Client {
                         System.out.println("Subscriptions updated!");
                     else
                         System.out.println("Sorry, try again later.");
-                    waitConfirmation();
                     break;
                 case 3:
-                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor).get();
+                    res = ms.sendAndReceive(server, "getTopics", serializer.encode(new GetTopics(username)), executor)
+                            .get();
                     viewTopics(serializer.decode(res));
-                    waitConfirmation();
                     break;
                 case 4:
                     res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(username))).get();
@@ -229,28 +218,27 @@ public class Client {
                 case 5:
                     System.out.println("What topics do you want to see?");
                     ArrayList<String> topicsList = new ArrayList<>();
-                    String input = "";
-                    try {
-                        input = in.readLine();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    String input = in.readLine();
                     String[] topicsToSee = input.split(" ");
                     for (String word : topicsToSee) {
+                        if (word.length() == 0)
+                            continue;
+
                         if (word.charAt(0) == '#')
                             topicsList.add(word);
                         else
                             topicsList.add("#" + word);
                     }
-                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(topicsList, username))).get();
-                    getLast10(((Tweets) serializer.decode(res)).getTweets());
+                    res = ms.sendAndReceive(server, "getTweets", serializer.encode(new GetTweets(topicsList, username)))
+                            .get();
+                    getLast10PerTopic(((Tweets) serializer.decode(res)).getTweets());
                     break;
                 case 6:
                     clearView();
-                    exit = true;
                     System.exit(1);
                     break;
             }
+            waitConfirmation();
         }
     }
 }

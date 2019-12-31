@@ -6,7 +6,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import common.*;
+import common.GetTopics;
+import common.GetTweets;
+import common.Response;
+import common.SubscribeTopics;
+import common.Topics;
+import common.Tweet;
+import common.Tweets;
+import common.TwitterSerializer;
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.cluster.messaging.MessagingConfig;
 import io.atomix.cluster.messaging.impl.NettyMessagingService;
@@ -54,7 +61,6 @@ public class Twitter {
                     ok.wait();
             }
 
-            ms.stop().get();
             ms.unregisterHandler("serverJoinResult");
 
             dbHandler = new DBHandler(myAddress.port(), sjr.getServers(), sjr.getAllTweets(), sjr.getTweetsDB(),
@@ -232,6 +238,7 @@ public class Twitter {
             tpcHandler.updateStatus(status);
         }, executor);
 
-        ms.start().get();
+        if (!ms.isRunning())
+            ms.start().get();
     }
 }

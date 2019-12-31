@@ -18,10 +18,9 @@ public class GetTopics {
     /**
      * Get - username.
      * 
-     * @param
      * @return username
      */
     public String getUsername() {
-        return username;
+        return this.username;
     }
 }

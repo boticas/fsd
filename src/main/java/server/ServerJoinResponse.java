@@ -14,11 +14,11 @@ public class ServerJoinResponse {
     private HashSet<Address> servers;
 
     private ArrayList<Tweet> allTweets;
-    private HashMap<String, ArrayList<Integer>> tweetsDB; // tópicos para indices de tweets desse tópico
-    private HashMap<String, HashSet<String>> subscriptionsDB; // username para tópicos subscritos
+    private HashMap<String, ArrayList<Integer>> tweetsDB; // Map of topics to indices of tweets on that topics
+    private HashMap<String, HashSet<String>> subscriptionsDB; // Map of usernames to subscribed topics
 
     public ServerJoinResponse() {
-        
+
     }
 
     public ServerJoinResponse(HashSet<Address> servers, ArrayList<Tweet> allTweets,

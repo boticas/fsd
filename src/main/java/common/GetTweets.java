@@ -29,34 +29,25 @@ public class GetTweets {
      * @param username
      */
     public GetTweets(ArrayList<String> topics, String username) {
-        ArrayList<String> aux = new ArrayList<>(topics.size());
-        topics.forEach((t) -> aux.add(t));
-        this.topics = aux;
+        this.topics = topics;
         this.username = username;
     }
 
     /**
      * Get - topics.
      * 
-     * @param
      * @return topics
      */
     public ArrayList<String> getTopics() {
-        if (this.topics == null)
-            return topics;
-
-        ArrayList<String> res = new ArrayList<>(this.topics.size());
-        this.topics.forEach((t) -> res.add(t));
-        return res;
+        return this.topics;
     }
 
     /**
      * Get - username.
      * 
-     * @param
      * @return username
      */
     public String getUsername() {
-        return username;
+        return this.username;
     }
 }

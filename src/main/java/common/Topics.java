@@ -1,8 +1,6 @@
 package common;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 
 /**
  * common.Tweets
@@ -16,24 +14,15 @@ public class Topics {
      * @param topics
      */
     public Topics(HashSet<String> topics) {
-        HashSet<String> newTopics = new HashSet<>(topics.size());
-        for (String t: topics) {
-            newTopics.add(t);
-        }
-        this.topics = newTopics;
+        this.topics = topics;
     }
 
     /**
      * Get - tweets.
      * 
-     * @param
      * @return topics
      */
-    public List<String> getTopics() {
-        ArrayList<String> res = new ArrayList<>(this.topics.size());
-        for (String t: this.topics) {
-            res.add(t);
-        }
-        return res;
+    public HashSet<String> getTopics() {
+        return this.topics;
     }
 }

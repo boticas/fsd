@@ -14,24 +14,15 @@ public class Tweets {
      * @param tweets
      */
     public Tweets(ArrayList<Tweet> tweets) {
-        ArrayList<Tweet> newTweets = new ArrayList<>(tweets.size());
-        for (Tweet t: tweets) {
-            newTweets.add(t);
-        }
-        this.tweets = newTweets;
+        this.tweets = tweets;
     }
 
     /**
      * Get - tweets.
      * 
-     * @param
      * @return tweets
      */
     public ArrayList<Tweet> getTweets() {
-        ArrayList<Tweet> res = new ArrayList<>(this.tweets.size());
-        for (Tweet t: this.tweets) {
-            res.add(t);
-        }
-        return res;
+        return this.tweets;
     }
 }

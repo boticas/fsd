@@ -19,7 +19,6 @@ public class Log {
     /**
      * Get - tpc.
      * 
-     * @param
      * @return tpc
      */
     public TwoPhaseCommit getTpc() {
@@ -29,7 +28,6 @@ public class Log {
     /**
      * Get - status.
      * 
-     * @param
      * @return status
      */
     public Status getStatus() {
@@ -39,7 +37,6 @@ public class Log {
     /**
      * Method hashCode.
      * 
-     * @param
      * @return int
      */
     @Override

@@ -3,7 +3,6 @@ package server;
 import java.util.HashSet;
 
 import common.Tweet;
-
 import io.atomix.utils.net.Address;
 
 /**

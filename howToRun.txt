@@ -1,5 +1,5 @@
 server:
-    mvn exec:java -Dexec.mainClass="Twitter" -Dexec.args="myIp:myPort otherServerIp:otherServerPort..."
+    mvn exec:java -Dexec.mainClass="server.Twitter" -Dexec.args="myIp:myPort otherServerIp:otherServerPort"
 
 client:
-    mvn exec:java -Dexec.mainClass="Client" -Dexec.args="myIp:myPort otherServerIp:otherServerPort..."
+    mvn exec:java -Dexec.mainClass="client.Client" -Dexec.args="myIp:myPort serverIp:serverPort"

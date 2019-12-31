@@ -6,10 +6,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 
-import common.Response;
-import common.Tweet;
 import org.apache.commons.math3.util.Pair;
 
+import common.Response;
+import common.Tweet;
 import io.atomix.cluster.messaging.ManagedMessagingService;
 import io.atomix.storage.journal.SegmentedJournal;
 import io.atomix.storage.journal.SegmentedJournalReader;
@@ -275,7 +275,8 @@ public class TPCHandler {
                 if (tpc.getCount() >= this.totalOrderCounter)
                     this.totalOrderCounter = tpc.getCount() + 1;
             }
-        } else { // status == (server.Log.server.Status.COMMIT || server.Log.server.Status.ABORT || server.Log.server.Status.HEARTBEAT)
+        } else { // status == (server.Log.server.Status.COMMIT || server.Log.server.Status.ABORT
+                 // || server.Log.server.Status.HEARTBEAT)
             synchronized (this.pendingTransactions) {
                 if (tpc.isHeartbeat()) {
                     synchronized (this.totalOrderCounter) {
