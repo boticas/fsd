@@ -5,6 +5,8 @@
 \setcounter{secnumdepth}{3}
 \setcounter{tocdepth}{3}
 
+\usepackage{hyperref}
+
 % Encoding
 %--------------------------------------
 \usepackage[T1]{fontenc}
@@ -40,8 +42,6 @@
 		PG41081 & José Alberto Martins Boticas
 		\\
 		PG41091 & Nelson José Dias Teixeira
-		\\
-		PG41096 & Ricardo Jorge Valadares Machado Carneiro Vieira
 	\end{tabular}
 }
 
@@ -67,15 +67,39 @@
 
 \chapter{Introdução} \label{intro}
 \large{
+	Neste projeto, de forma muito sucinta, é requerido a elaboração de um sistema distribuído, semelhante ao \textit{Twitter}, baseado na troca de mensagens. Este sistema deve satisfazer alguns requisitos que foram impostos pelo docente desta disciplina. Entre eles destacam-se:
+	\begin{itemize}
+		\item o sistema deve incluir um conjunto de servidores que se conhecem todos entre si. Estes não devem ter qualquer interação direta com o utilizador. Admite-se ainda a possibilidade de cada um dos servidores ser reiniciado, devendo garantir que o sistema continua operacional depois de todos os servidores estarem novamente a funcionar;
+		\item o sistema deve incluir clientes que se ligam a qualquer um dos servidores. Admite-se também que o cliente possa ser reiniciado e posteriormente ligado a um novo servidor.
+		\item admite-se que tanto os clientes como os servidores possam fazer uso de memória persistente.
+		\item o cliente deve incluir uma interface rudimentar para interagir com o sistema. Nesta deve-se incluir as seguintes funcionalidades:
+		\begin{itemize}
+			\item permitir a publicação de uma mensagem etiquetada com um ou mais tópicos;
+			\item indicar qual a lista de tópicos subscritos;
+			\item obter as últimas 10 mensagens enviadas para os tópicos subscritos.
+		\end{itemize}
+		\item o conjunto de mensagens obtido por cada cliente em cada operação deve refletir uma visão causalmente coerente das operações realizadas em todo o sistema, por esse ou outros utilizadores.
+	\end{itemize}
+	Após a exposição dos requisitos inerentes a este trabalho prático, os elementos que compõem este grupo deram ínicio ao desenvolvimento do sistema pretendido.
 }
 
 \chapter{Análise e Especificação}
     \section{Requisitos}
 
 \chapter{Conclusão}
+\large{
+	Após a demonstração da abordagem adotada pelo grupo na implementaçao do sistema pedido e, ainda, as adversidades e os desafios que surgiram ao longo da mesma, dá-se por concluída a realização deste projeto. Neste foi possível satisfazer todos os requisitos requeridos bem como acrescentar algumas funcionalidades extra de forma a promover uma melhor interpretabilidade do funcionamento do sistema em causa.
+	Para além disso, foi possível aprofundar alguns dos aspetos relativos à componente prática desta unidade curricular, melhorando, assim, a nossa capacidade na implementação de sistemas que abordam esta filosofia computacional.
+}
 
 \appendix
 \chapter{Observações}
+\begin{itemize}
+	\item Biblioteca \textit{Atomix}:
+	\par \textit{\url{https://atomix.io/}}
+	\item Documentação \textit{Java}:
+	\par \textit{\url{https://docs.oracle.com/en/java/javase/11/docs/api/index.html}}
+\end{itemize}
 
 
 \end{document}
