@@ -56,7 +56,7 @@
 % Resumo
 
 \begin{abstract}
-	Este trabalho prático tem por base a implementação de um sistema de troca de mensagens com persistência e ordenação. Para tal, à semelhança do que feito durante as aulas, foi utilizada a linguagem \textit{Java} (que é orientada aos objetos) por forma a tomar partido de algumas classes já existentes para este tipo de problemas, como por exemplo a classe \textit{Atomix}. De forma geral, o sistema pretendido pode ser descrito como semelhante ao \textit{Twitter} com alguns requisitos extra de correção.
+	Este trabalho prático tem como objetivo a implementação de um sistema de troca de mensagens com persistência e ordenação. Para tal, à semelhança do que foi feito durante as aulas, utilizámos a linguagem \textit{Java} (que é orientada aos objetos) por forma a tomar partido de algumas classes já existentes para este tipo de problemas, como por exemplo a \textit{framework Atomix}. De forma geral, o sistema pretendido pode ser descrito como semelhante ao \textit{Twitter} com alguns requisitos extra de correção.
 \end{abstract}
 
 % Índice
@@ -67,11 +67,11 @@
 
 \chapter{Introdução} \label{intro}
 \large{
-	Neste projeto é requerida a elaboração de um sistema distribuído, semelhante ao \textit{Twitter}, baseado na troca de mensagens. Este sistema deve satisfazer alguns requisitos que foram impostos pelo docente da unidade curricular, que se listam de seguida.
+	Neste projeto é requerida a elaboração de um sistema distribuído, semelhante ao \textit{Twitter}, baseado na troca de mensagens. Este sistema deve satisfazer alguns requisitos que foram impostos no éneunciado deste trabalho, que se listam de seguida:
 	\begin{itemize}
 		\item o sistema deve incluir um conjunto de servidores que se conhecem todos entre si. Estes não devem ter qualquer interação direta com o utilizador. Admite-se ainda a possibilidade de cada um dos servidores ser reiniciado, devendo garantir que o sistema continua operacional depois de todos os servidores estarem novamente a funcionar;
-		\item o sistema deve incluir clientes que se ligam a qualquer um dos servidores. Admite-se também que o cliente possa ser reiniciado e posteriormente ligado a um novo servidor.
-		\item admite-se que tanto os clientes como os servidores possam fazer uso de memória persistente.
+		\item o sistema deve incluir clientes que se ligam a qualquer um dos servidores. Admite-se também que o cliente possa ser reiniciado e posteriormente ligado a um novo servidor;
+		\item admite-se que tanto os clientes como os servidores possam fazer uso de memória persistente;
 		\item o cliente deve incluir uma interface rudimentar para interagir com o sistema. Nesta deve-se incluir as seguintes funcionalidades:
 		\begin{itemize}
 			\item permitir a publicação de uma mensagem etiquetada com um ou mais tópicos;
@@ -86,24 +86,24 @@
 	O sistema implementado tem como requisito a inclusão de um conjunto de servidores que se conhecem todos entre si e que não devem ter qualquer interação direta com o utilizador.
 	Por isso, foi criada uma interface (\textbf{\textit{Client.java}}) que trata de suavizar essa interação e cumpre os restantes requisitos apresentados anteriormente.
 
-	Foi importante definir algumas diretivas antes de se passar à implementação do sistema. Vamos agora enumerar algumas das decisões tomadas, que serão posteriormente explicadas:
+	Foi importante definir algumas diretrizes antes de se passar à implementação do sistema. Vamos agora enumerar algumas das decisões tomadas, que serão posteriormente explicadas:
 	\begin{itemize}
-			\item Cada servidor contém toda a informação do sistema.
-			\item Existe \textit{total order} entre os servidores.
+			\item Cada servidor contém toda a informação do sistema;
+			\item Existe \textit{total order} entre os servidores;
 			\item Os pedidos dos clientes são de dois tipos (bloqueantes e não bloqueantes):
 			\begin{itemize}
-				\item Os \textbf{pedidos bloquantes} são: enviar mensagens (\textit{tweets}) e subscrever tópicos. 
-				\item Os \textbf{pedidos não bloquantes} são: ver mensagens (\textit{tweets}) e ver a lista dos tópicos subscritos.
+				\item Os \textbf{pedidos bloqueantes} são: enviar mensagens (\textit{tweets}) e subscrever tópicos. 
+				\item Os \textbf{pedidos não bloqueantes} são: ver mensagens (\textit{tweets}) e ver a lista dos tópicos subscritos.
 			\end{itemize}
-			\item O cliente não usa memória persistente, ao contrário dos servidores, onde são guardados todos os dados.
-			\item Os servidores utilizam o protocolo \textit{Two-phase Commit} para garantir a própria consistência e a coerência do sistema.
+			\item O cliente não usa memória persistente, ao contrário dos servidores, onde são guardados todos os dados;
+			\item Os servidores utilizam o protocolo \textit{Two-phase Commit} para garantir a consistência e a coerência do sistema.
 		\end{itemize}
 
 	\section{Servidor}
 
 		\subsection{Inicialização}
 		Quando é iniciado, o servidor procura uma base de dados. Se encontrar uma e o respetivo ficheiro de \textit{logs}, assume essa mesma base de dados e tenta aplicar as transações pendentes no ficheiro de \textit{logs}, caso exista alguma.
-		Caso não encontre uma base de dados, assume que está a ser criado um novo sistema, de raíz.
+		Caso não encontre uma base de dados, assume que está a ser criado um novo sistema (\textit{cluster}).
 
 		Para a inicialização do primeiro servidor, deve ser executado o ficheiro \textit{\textbf{Twitter.java}}, com a indicação do endereço \textit{IP} e da porta.
 		Os restantes servidores devem ter a mesma indicação, para além da indicação do endereço \textit{IP} e da porta de um outro servidor já inicializado, por forma a poderem juntar-se a este.
@@ -112,32 +112,31 @@
 		Isto permite que sejam adicionados novos servidores mais tarde.
 
 
-		\subsection{Pedidos bloquantes vs. não bloquantes}
+		\subsection{Pedidos bloqueantes vs. não bloqueantes}
 
 		Os pedidos que o cliente pode fazer a um servidor do sistema foram divididos em dois tipos: 
 		\begin{itemize}
-			\item bloquantes - enviar mensagens e subscrever tópicos;
-			\item não bloquantes - ver mensagens e ver a lista de tópicos subscritos.
+			\item bloqueantes - enviar mensagens e subscrever tópicos;
+			\item não bloqueantes - ver mensagens e ver a lista de tópicos subscritos.
 		\end{itemize}
 		
-		Um pedido bloquante implica que o servidor tenha de comunicar o mesmo aos restantes servidores, iniciar um \textit{two-phase commit} e só depois responder ao cliente.
-		Afirmativamente quando todos os servidores estão disponíveis para receber a atualização, ou negativamente, caso contrário.
+		Um pedido bloqueante implica que o servidor tenha de comunicar o mesmo aos restantes servidores, iniciar um \textit{two-phase commit} e só depois responder ao cliente:
+		afirmativamente quando todos os servidores estão disponíveis para receber a atualização ou negativamente, caso contrário.
 
 		Um pedido não bloqueante não implica que o servidor tenha de comunicar com os restantes servidores, podendo desde logo responder ao cliente.
 
 		O que acontece se um dos servidores tiver uma falha e não tiver ainda sido reiniciado, quando outro recebe um pedido?
 		Se o pedido que o servidor recebe for bloqueante, então o mesmo fica bloqueado à espera que o servidor que falhou seja reposto.
-		Se o pedido for não bloquante, então o servidor responde de imediato, uma vez que não põe em causa a coerência do sistema.
+		Se o pedido for não bloqueante, então o servidor responde de imediato, uma vez que não põe em causa a coerência do sistema, visto que não há possibilidade de estar a haver progresso.
 
 
 		\subsection{Coerência/Ordenação}
 
-		% Explicar melhor a implementação do total order
-		Os servidores têm \textit{total order}, implementada através de um contador. 
-		Isto garante que a resposta a pedidos não bloqueantes efetuados ao mesmo tempo em servidores diferentes é igual, quer em termos de conteúdo como em termos de ordenação.
+		Os servidores foram implementados com a ideia de \textit{total order} em mente. Para isso, cada servidor possui um contador, que é incrementado quando uma mensagem é enviada e, quando uma mensagem é recebida, atualizado para o valor seguinte ao máximo entre o seu contador e o do outro servidor. 
+		Isto garante que a resposta a pedidos não bloqueantes efetuados ao mesmo tempo em servidores diferentes é igual, quer em termos de conteúdo como em termos de ordenação, visto que os servidores aplicam sempre a transação com o valor do contador mais baixo, utilizando os endereços para desempates.
 
 		O facto de a ligação entre um servidor e um cliente utilizar o protocolo \textit{TCP}, permite uma visão causalmente coerente (\textit{causal order}), 
-		uma vez que é impossível que uma mensagem "ultrapasse" outra. Ou seja, se um cliente envia duas mensagens para o servidor, a primeira chegará ao destino em primeiro lugar e, portanto, será imediatamente processada.
+		uma vez que é impossível que uma mensagem "ultrapasse" outra. Ou seja, se um cliente envia duas mensagens para o servidor, a primeira chegará ao destino em primeiro lugar e, portanto, será processada em primeiro lugar, garantido a manutenção da ordenação dos pedidos do cliente.
 
 
 		\subsection{Gestão dos dados}
@@ -149,11 +148,11 @@
 			\item uma lista (\textit{ArrayList<Tweet>}) de todos os \textit{tweets} (mensagens enviadas por utilizadores), 
 			sendo que um \textit{Tweet} é composto por uma \textit{string} \textit{username} (que identifica um utilizador), outra \textit{string} \textit{content} (com o conteúdo da mensagem/\textit{tweet})
 			e ainda um conjunto (\textit{HashSet<String>}) de tópicos;
-			\item um mapa (\textit{HashMap<String, ArrayList<Integer>>}) de tópicos para uma lista de inteiros, sendo que esta lista de inteiros corresponde aos índices dos \textit{tweets} com esse tópico.
-			\item um mapa (\textit{HashMap<String, HashSet<String>>}) de \textit{usernames} para um conjunto de tópicos subscritos (pelo utilizador identidicado por esse \textit{username}).
+			\item um mapa (\textit{HashMap<String, ArrayList<Integer>>}) de tópicos para uma lista de inteiros, sendo que esta lista de inteiros corresponde aos índices dos \textit{tweets} com esse tópico;
+			\item um mapa (\textit{HashMap<String, HashSet<String>>}) de \textit{usernames} para um conjunto de tópicos subscritos (pelo utilizador identificado por esse \textit{username}).
 		\end{itemize}
-		
-		Deste modo, um servidor tem sempre, em memória volátil, toda informação existente, não havendo assim o atraso da leitura de disco.
+
+		Deste modo, os servidores têm sempre, em memória volátil, toda informação existente, não havendo assim o atraso da leitura de disco, apesar de que, depois de cada atualização, o novo estado da base de dados é guardado é em disco, de modo que seja possível recuperar esta informação em caso de falha.
 		De realçar que os objetos \textit{DBHandler} de cada servidor devem ser iguais para todos os servidores, uma vez que representam toda a informação do sistema.
 
 
@@ -167,34 +166,34 @@
 		\item a base de dados (objeto \textit{DBHandler}), para ser alterada;
 		\item um contador, para garantir \textit{total order};
 		\item dois \textit{logs} (um de servidor e um de coordenador), que permitem reiniciar uma transação no caso de um servidor falhar a meio da mesma;
-		\item um mapa com os os tcps de coordenador  % EXPLICAR O QUE É ISTO
+		\item um mapa com todas as transações em que o servidor é coordenador, tanto as já concluídas (para o caso de um servidor perguntar o estado de uma delas) como as que estão em curso (guardando os servidores que já as aceitaram, para mais tarde efetivá-las);
 		\item um mapa de endereços (de cada um dos outros servidores) para outro mapa de inteiros para pares estado da transação/transação 
-		(\textit{HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>>}), que corresponde às transações por completar.
+		(\textit{HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>>}), que corresponde às transações por completar em cada servidor (não-coordenador).
 		\end{itemize}
 		
 		Mas como é controlado o \textit{two-phase commit}?
 		Neste sistema, por não ser implementada tolerância a faltas (uma vez que não é objeto de estudo desta unidade curricular), foi decidido, por razões de simplicidade, 
-		que, numa transação, o coordenador é sempre o servidor que recebe o pedido e, consequentemente inicia a mesma.
+		que, numa transação, o coordenador é sempre o servidor que recebe o pedido e, consequentemente, inicia a mesma.
 		Assim, este é quem controla o \textit{two-phase commit}.
 
 		O coordenador envia a informação a todos os servidores (incluindo ele próprio) e pergunta se todos podem guardar a informação. 
 		No caso de todos os servidores darem resposta positiva, o coordenador indica-lhes que devem guardar a informação na base de dados (memória persistente), sendo a transação bem sucedida.
 
-		% INCLUIR RAZÃO DE EXISTIREM OS LOGS
+		Em cada fase do \textit{two-phase commit}, é guardado num ficheiro de \textit{log} o passo que está prestes a ser efetuado nesse servidor. Para isso, utiliza-se a classe \textit{SegementeJournal} do \textit{Atomix}, que permite manter um \textit{log} ordenado em disco. Desta forma, no caso de um servidor ser desligado a meio de uma transação, quando este for reiniciado poderá voltar ao estado em que se encontrava, ao aplicar as alterações presentes no ficheiro de \textit{logs}. A única desvantagem desta abordagem é que, há medida que o tempo de execução do servidor aumenta, o \textit{log} vai crescendo, levando a um tempo de inicialização maior. Uma solução seria limpar o log periodicamente.
 
-		Tal como os pedidos bloqueantes, a junção de um servidor também inicia um \textit{two-phase commit}, por ser uma operação relevante 
+		Tal como os pedidos bloqueantes, a junção de um servidor também inicia um \textit{two-phase commit}, por ser uma operação de grande relevância 
 		(a partir daqui todas as operações bloqueantes devem passar por este novo servidor) e que implica a alteração da base de dados dos servidores.
-		Se o \textit{two-phase commit} for bem sucedido, o novo servidor recebe todas as informações do sistema, por forma inserir-se no mesmo e poder dar uma resposta consistente aos clientes.
+		Se o \textit{two-phase commit} for bem sucedido, o novo servidor recebe todas as informações do sistema, por forma a inserir-se no mesmo e poder dar uma resposta consistente aos clientes.
 
-		Importa ainda referir que foi necessário definir um tipo diferente de \textit{two-phase commit}, os heartbeats. % EXPLICAR ISTO QUE EU NÃO CONSIGO
+		Importa ainda referir que foi necessário definir um tipo diferente de \textit{two-phase commit}, os \textit{heartbeats}. Estes surgiram da necessidade de, como abordado nas aulas, forçar os servidores a comunicar, dado que, se um deles parar a comunicação, o sistema não poderá prosseguir como um todo. Assim, criámos os \textit{heartbeats}, que contêm o contador de \textit{total order} do servidor que o envia, e podem ser requisitados por qualquer um dos servidores a todos os outros. Ou seja, sempre que um servidor conclui que necessita de uma mensagem de outro para poder prosseguir, envia um pedido de \textit{heartbeat} a esse servidor, que lhe responderá com a mensagem descrita acima.
 
 	\section{Cliente}
-		Um servidor pode ser ligado a qualquer servidor, sendo que pode ainda desconectar-se e ligar-se a um outro servidor, sem perder os seus dados ou a ordenação dos mesmos.
+		Um cliente pode ser ligado a qualquer servidor, sendo que pode ainda desconectar-se e ligar-se a um outro servidor, sem perder os seus dados ou a ordenação dos mesmos.
 		Para ser identificado, o utilizador fornece o seu username quando se conecta ao servidor. Se o username não existir na base de dados, é criado. Se já existir, assume as informações já existentes.
 
 		Não foi implementada autenticação de utilizadores, por não ser relevante para a prática e demonstração das capacidades adquiridas nesta disciplina, pelo que não existe qualquer \textit{login} e/ou registo de utilizadores.
 
-		Com \textit{Two-phase Commit} e \textit{total order}, é assegurado que as respostas que o cliente recebe refletem uma visão consistente do estado de todos os servidores.
+		Com o \textit{two-phase commit} e o \textit{total order}, é assegurado que as respostas que o cliente recebe refletem uma visão consistente do estado de todos os servidores.
 
 		\subsection{Interface}
 		Um utilizador pode tomar 6 ações através da interface que lhe é disponibilizada:
@@ -222,7 +221,8 @@
 			\item \textit{common}: conjunto de classes partilhadas pelo cliente e pelos servidores;
 			\item \textit{server}: classes relativas à implementação dos servidores, incluindo a que trata o ficheiro de \textit{logs}.
 		\end{itemize}
-	
+		Algumas destas classes são específicas a este trabalho, mas algumas delas são suficientemente genéricas para serem aplicadas a qualquer sistema que utilize o protocolo \textit{two-phase commit} e a ideia de \textit{total order}. Há a referir, em particular, as classes \textit{DBHandler} e \textit{TPCHandler}.
+
 \chapter{Testes}
 	\section{Testes de funcionamento}
 		O sistema foi testado localmente (uma única máquina e vários processos), por forma a garantir que o mesmo funcionava corretamente e que todos os requisitos eram cumpridos.
@@ -232,7 +232,7 @@
 		Nestas máquinas, foram criados três servidores e alguns clientes. 
 		Pudemos conferir que o sistema funcionava corretamente também nestas condições, com os servidores, espalhados pelos locais enunciados, a conectarem-se sem problemas.
 		Confirmamos ainda que os clientes conseguiam executar todas as ações disponibilizadas pela interface de utilizador e que o sistema mantinha a sua consistência e coerência, 
-		bem como tinha um comportamento correto em todas as circunstâncias. Para isso, foi simulada a falha de um e de dois dos servidores e o sistema cumpriu o que fora por nós proposto.
+		bem como tinha um comportamento correto em todas as circunstâncias. Para isso, foi simulada a falha de um e de dois dos servidores e o sistema cumpriu o que foi por nós proposto.
 
 	\section{Teste de performance} % POR FAZER
 

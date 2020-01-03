@@ -51,6 +51,10 @@ public class Twitter {
                     ok.notify();
                 }
             }, Executors.newFixedThreadPool(1));
+            ms.registerHandler("result", (a, b) -> {
+                System.out.println("\nNão foi possível adicionar o servidor. Tente novamente mais tarde");
+                System.exit(-1);
+            }, Executors.newFixedThreadPool(1));
             ms.start().get();
 
             ServerJoin sj = new ServerJoin(myAddress);
