@@ -1,5 +1,9 @@
-server:
-    mvn exec:java -Dexec.mainClass="server.Twitter" -Dexec.args="myIp:myPort otherServerIp:otherServerPort"
+primeiro servidor:
+    mvn exec:java -Dexec.mainClass="server.Twitter" -Dexec.args="myIp:myPort"
+
+outros servidores: 
+os servidores criados depois do primeiro são iniciados com o seu ip:porta e o ip:porta de um dos servidores já criados anteriormente (do primeiro servidor para o caso do segundo servidor)
+    mvn exec:java -Dexec.mainClass="server.Twitter" -Dexec.args="myIp:myPort otherserverIp:port"
 
 client:
     mvn exec:java -Dexec.mainClass="client.Client" -Dexec.args="myIp:myPort serverIp:serverPort"

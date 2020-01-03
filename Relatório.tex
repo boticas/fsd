@@ -148,8 +148,8 @@
 			\item uma lista (\textit{ArrayList<Tweet>}) de todos os \textit{tweets} (mensagens enviadas por utilizadores), 
 			sendo que um \textit{Tweet} é composto por uma \textit{string} \textit{username} (que identifica um utilizador), outra \textit{string} \textit{content} (com o conteúdo da mensagem/\textit{tweet})
 			e ainda um conjunto (\textit{HashSet<String>}) de tópicos;
-			\item um mapa (\textit{HashMap<String, ArrayList<Integer>>}) de tópicos para uma lista de inteiros, sendo que esta lista de inteiros corresponde aos índices dos \textit{tweets} com esse tópico;
-			\item um mapa (\textit{HashMap<String, HashSet<String>>}) de \textit{usernames} para um conjunto de tópicos subscritos (pelo utilizador identificado por esse \textit{username}).
+			\item um mapa (\textit{HashMap<String, ArrayList<Integer> >}) de tópicos para uma lista de inteiros, sendo que esta lista de inteiros corresponde aos índices dos \textit{tweets} com esse tópico;
+			\item um mapa (\textit{HashMap<String, HashSet<String> >}) de \textit{usernames} para um conjunto de tópicos subscritos (pelo utilizador identificado por esse \textit{username}).
 		\end{itemize}
 
 		Deste modo, os servidores têm sempre, em memória volátil, toda informação existente, não havendo assim o atraso da leitura de disco, apesar de que, depois de cada atualização, o novo estado da base de dados é guardado em disco, de modo que seja possível recuperar esta informação em caso de falha.
@@ -168,7 +168,7 @@
 		\item dois \textit{logs} (um de servidor e um de coordenador), que permitem reiniciar uma transação no caso de um servidor falhar a meio da mesma;
 		\item um mapa com todas as transações em que o servidor é coordenador, tanto as já concluídas (para o caso de um servidor perguntar o estado de uma delas) como as que estão em curso (guardando os servidores que já as aceitaram, para mais tarde efetivá-las);
 		\item um mapa de endereços (de cada um dos outros servidores) para outro mapa de inteiros para pares estado da transação/transação 
-		(\textit{HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit>>>}), que corresponde às transações por completar em cada servidor (não-coordenador).
+		(\textit{HashMap<Address, TreeMap<Integer, Pair<TPCStatus, TwoPhaseCommit> > >}), que corresponde às transações por completar em cada servidor (não-coordenador).
 		\end{itemize}
 		
 		Mas como é controlado o \textit{two-phase commit}?
