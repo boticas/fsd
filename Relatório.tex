@@ -228,13 +228,37 @@
 		O sistema foi testado localmente (uma única máquina e vários processos), por forma a garantir que o mesmo funcionava corretamente e que todos os requisitos eram cumpridos.
 
 		Para além destes primeiros testes, foram realizados ainda testes adicionais em máquinas remotas (com recurso à plataforma \textit{DigitalOcean}). Estas máquinas estão espalhadas por diferentes cidades, países e continentes, 
-		nomeadamente em Londres (Inglaterra), Nova Iorque (EUA), Toronto (Canadá), Frankfurt (Alemanha), Singapura e na Índia.
+		nomeadamente em Londres (Inglaterra), Nova Iorque (EUA), Toronto (Canadá), Amesterdão (Holanda), Singapura e na Índia.
 		Nestas máquinas, foram criados três servidores e alguns clientes. 
 		Pudemos conferir que o sistema funcionava corretamente também nestas condições, com os servidores, espalhados pelos locais enunciados, a conectarem-se sem problemas.
 		Confirmamos ainda que os clientes conseguiam executar todas as ações disponibilizadas pela interface de utilizador e que o sistema mantinha a sua consistência e coerência, 
 		bem como tinha um comportamento correto em todas as circunstâncias. Para isso, foi simulada a falha de um e de dois dos servidores e o sistema cumpriu o que foi por nós proposto.
 
-	\section{Teste de performance} % POR FAZER
+	\section{Teste de performance}
+		Realizaram-se alguns testes de performance ao sistema, com números distintos de servidores ativos, localmente e remotamente (servidores espalhados pelo planeta, tal como nos testes de funcionamento).
+		Todos os testes foram feitos usando um cliente, que enviava 50 pedidos por segundo ao servidor ao qual estava ligado e contava quantas respostas recebia.
+		De realçar que todos os pedidos eram de partilhas de mensagens, portanto, bloqueantes.
+		
+		\begin{table}[h!]
+			\begin{center}
+				\caption{Número médio de respostas por segundo.}
+				\label{tab:table1}
+					\begin{tabular}{c|c|c}
+						\textbf{Nº de servidores} & \textbf{Localmente} & \textbf{Remotamente}\\
+						\hline
+						\textbf{1} & 50 & 43.4\\
+						\textbf{2} & 42 & 37\\
+						\textbf{3} & 35.3 & 24\\
+					\end{tabular}
+			\end{center}
+		\end{table}
+
+		É possível perceber que o aumento do número de servidores implica a diminuição da performance, o que pode ser explicado pelas comunicações que têm de ser estabelecidas entre os servidores, pelo protocolo \textit{two-phase commit}.
+		
+		É ainda possível constatar que a performance é melhor quando os servidores estão mais perto uns dos outros, nomeadamente na mesma máquina. Isto também é fácil de compreender, uma vez que se reduz a latência natural que existe com servidores mais distantes.
+
+		Obviamente que estes testes de performance dependem sempre das máquinas em que correm os servidores e da ligação que os mesmos têm entre si.
+		É também necessário ter em conta que todos os pedidos são bloqueantes e que os resultados para pedidos não bloqueantes ou mistos seriam sempre diferentes e, provavelmente, melhores.
 
 \chapter{Conclusão}
 \large{
