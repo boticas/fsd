@@ -90,7 +90,7 @@ public class Twitter {
             Address myAddress, HashSet<Address> allAddresses, DBHandler dbHandler, TPCHandler tpcHandler)
             throws Exception {
         ms.registerHandler("publishTweet", (a, b) -> {
-            System.out.println("publishTweet");
+            //System.out.println("publishTweet");
             Tweet newTweet = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), newTweet,
@@ -103,7 +103,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("subscribeTopics", (a, b) -> {
-            System.out.println("subscribeTopics");
+            //System.out.println("subscribeTopics");
             SubscribeTopics st = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), st.getUsername(),
@@ -116,7 +116,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("serverJoin", (a, b) -> {
-            System.out.println("serverJoin");
+            //System.out.println("serverJoin");
             ServerJoin sj = serializer.decode(b);
 
             TwoPhaseCommit prepare = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), sj, myAddress,
@@ -129,7 +129,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("getTweets", (a, b) -> {
-            System.out.println("getTweets");
+            //System.out.println("getTweets");
             GetTweets gt = serializer.decode(b);
             String username = gt.getUsername();
             ArrayList<String> topics = gt.getTopics();
@@ -145,7 +145,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("getTopics", (a, b) -> {
-            System.out.println("getTopics");
+            //System.out.println("getTopics");
             GetTopics gt = serializer.decode(b);
             String username = gt.getUsername();
             // Return the topics username is subscribed to
@@ -154,7 +154,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("tpcPrepare", (a, b) -> {
-            System.out.println("tpcPrepare");
+            //System.out.println("tpcPrepare");
             TwoPhaseCommit prepare = serializer.decode(b);
 
             tpcHandler.updateServerLog(prepare, Log.Status.PREPARE, a);
@@ -163,7 +163,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("tpcResponseOk", (a, b) -> {
-            System.out.println("tpcResponseOk");
+            //System.out.println("tpcResponseOk");
             TwoPhaseCommit response = serializer.decode(b);
 
             boolean allAccepted = tpcHandler.updateCoordinatorLog(response, Log.Status.COMMIT, a);
@@ -185,7 +185,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("tpcResponseNotOk", (a, b) -> {
-            System.out.println("tpcResponseNotOk");
+            //System.out.println("tpcResponseNotOk");
             TwoPhaseCommit response = serializer.decode(b);
 
             tpcHandler.updateCoordinatorLog(response, Log.Status.ABORT, a);
@@ -197,34 +197,34 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("tpcCommit", (a, b) -> {
-            System.out.println("tpcCommit");
+            //System.out.println("tpcCommit");
             TwoPhaseCommit commit = serializer.decode(b);
 
             tpcHandler.updateServerLog(commit, Log.Status.COMMIT, a);
         }, executor);
 
         ms.registerHandler("tpcRollback", (a, b) -> {
-            System.out.println("tpcRollback");
+            //System.out.println("tpcRollback");
             TwoPhaseCommit rollback = serializer.decode(b);
 
             tpcHandler.updateServerLog(rollback, Log.Status.ABORT, a);
         }, executor);
 
         ms.registerHandler("tpcHeartbeat", (a, b) -> {
-            System.out.println("tpcHeartbeat");
+            //System.out.println("tpcHeartbeat");
             TwoPhaseCommit heartbeat = serializer.decode(b);
 
             tpcHandler.processHeartbeat(heartbeat, a);
         }, executor);
 
         ms.registerHandler("tpcGetHeartbeat", (a, b) -> {
-            System.out.println("tpcGetHeartbeat");
+            //System.out.println("tpcGetHeartbeat");
             TwoPhaseCommit heartbeat = new TwoPhaseCommit(tpcHandler.getAndIncrementTotalOrderCounter(), myAddress);
             ms.sendAsync(a, "tpcHeartbeat", serializer.encode(heartbeat));
         }, executor);
 
         ms.registerHandler("tpcGetStatus", (a, b) -> {
-            System.out.println("tpcGetStatus");
+            //System.out.println("tpcGetStatus");
             TwoPhaseCommit getStatus = serializer.decode(b);
 
             TwoPhaseCommit heartbeat = new TwoPhaseCommit(getStatus.getCount(), getStatus.getCoordinator());
@@ -236,7 +236,7 @@ public class Twitter {
         }, executor);
 
         ms.registerHandler("tpcStatus", (a, b) -> {
-            System.out.println("tpcStatus");
+            //System.out.println("tpcStatus");
             Status status = serializer.decode(b);
 
             tpcHandler.updateStatus(status);
