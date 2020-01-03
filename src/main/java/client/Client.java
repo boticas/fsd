@@ -137,7 +137,7 @@ public class Client {
         System.out.println("Welcome to Twitter");
         System.out.print("Please introduce your username: ");
         System.out.flush();
-        username = in.readLine() + "aaa";
+        username = in.readLine();
 
         Address myAddress = Address.from(args[0]);
         Address server = Address.from(args[1]);
