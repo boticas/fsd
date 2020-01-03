@@ -96,7 +96,7 @@
 				\item Os \textbf{pedidos não bloqueantes} são: ver mensagens (\textit{tweets}) e ver a lista dos tópicos subscritos.
 			\end{itemize}
 			\item O cliente não usa memória persistente, ao contrário dos servidores, onde são guardados todos os dados;
-			\item Os servidores utilizam o protocolo \textit{Two-phase Commit} para garantir a consistência e a coerência do sistema.
+			\item Os servidores utilizam o protocolo \textit{two-phase commit} para garantir a consistência e a coerência do sistema.
 		\end{itemize}
 
 	\section{Servidor}
@@ -112,7 +112,7 @@
 		Isto permite que sejam adicionados novos servidores mais tarde.
 
 
-		\subsection{Pedidos bloqueantes vs. não bloqueantes}
+		\subsection{Pedidos bloqueantes vs. Pedidos não bloqueantes}
 
 		Os pedidos que o cliente pode fazer a um servidor do sistema foram divididos em dois tipos: 
 		\begin{itemize}
@@ -130,9 +130,9 @@
 		Se o pedido for não bloqueante, então o servidor responde de imediato, uma vez que não põe em causa a coerência do sistema, visto que não há possibilidade de estar a haver progresso.
 
 
-		\subsection{Coerência/Ordenação}
+		\subsection{Coerência e Ordenação}
 
-		Os servidores foram implementados com a ideia de \textit{total order} em mente. Para isso, cada servidor possui um contador, que é incrementado quando uma mensagem é enviada e, quando uma mensagem é recebida, atualizado para o valor seguinte ao máximo entre o seu contador e o do outro servidor. 
+		Os servidores foram implementados com a ideia de \textit{total order} em mente. Para isso, cada servidor possui um contador, que é incrementado quando uma mensagem é enviada e, quando uma mensagem é recebida, é atualizado para o valor seguinte ao máximo entre o seu contador e o do outro servidor. 
 		Isto garante que a resposta a pedidos não bloqueantes efetuados ao mesmo tempo em servidores diferentes é igual, quer em termos de conteúdo como em termos de ordenação, visto que os servidores aplicam sempre a transação com o valor do contador mais baixo, utilizando os endereços para desempates.
 
 		O facto de a ligação entre um servidor e um cliente utilizar o protocolo \textit{TCP}, permite uma visão causalmente coerente (\textit{causal order}), 
@@ -152,7 +152,7 @@
 			\item um mapa (\textit{HashMap<String, HashSet<String>>}) de \textit{usernames} para um conjunto de tópicos subscritos (pelo utilizador identificado por esse \textit{username}).
 		\end{itemize}
 
-		Deste modo, os servidores têm sempre, em memória volátil, toda informação existente, não havendo assim o atraso da leitura de disco, apesar de que, depois de cada atualização, o novo estado da base de dados é guardado é em disco, de modo que seja possível recuperar esta informação em caso de falha.
+		Deste modo, os servidores têm sempre, em memória volátil, toda informação existente, não havendo assim o atraso da leitura de disco, apesar de que, depois de cada atualização, o novo estado da base de dados é guardado em disco, de modo que seja possível recuperar esta informação em caso de falha.
 		De realçar que os objetos \textit{DBHandler} de cada servidor devem ser iguais para todos os servidores, uma vez que representam toda a informação do sistema.
 
 
@@ -179,7 +179,7 @@
 		O coordenador envia a informação a todos os servidores (incluindo ele próprio) e pergunta se todos podem guardar a informação. 
 		No caso de todos os servidores darem resposta positiva, o coordenador indica-lhes que devem guardar a informação na base de dados (memória persistente), sendo a transação bem sucedida.
 
-		Em cada fase do \textit{two-phase commit}, é guardado num ficheiro de \textit{log} o passo que está prestes a ser efetuado nesse servidor. Para isso, utiliza-se a classe \textit{SegementeJournal} do \textit{Atomix}, que permite manter um \textit{log} ordenado em disco. Desta forma, no caso de um servidor ser desligado a meio de uma transação, quando este for reiniciado poderá voltar ao estado em que se encontrava, ao aplicar as alterações presentes no ficheiro de \textit{logs}. A única desvantagem desta abordagem é que, há medida que o tempo de execução do servidor aumenta, o \textit{log} vai crescendo, levando a um tempo de inicialização maior. Uma solução seria limpar o log periodicamente.
+		Em cada fase do \textit{two-phase commit}, é guardado num ficheiro de \textit{log} o passo que está prestes a ser efetuado nesse servidor. Para isso, utiliza-se a classe \textit{SegmentedJournal} do \textit{Atomix}, que permite manter um \textit{log} ordenado em disco. Desta forma, no caso de um servidor ser desligado a meio de uma transação, quando este for reiniciado poderá voltar ao estado em que se encontrava, ao aplicar as alterações presentes no ficheiro de \textit{logs}. A única desvantagem desta abordagem é que, há medida que o tempo de execução do servidor aumenta, o ficheiro de \textit{logs} vai crescendo, levando a um tempo de inicialização maior. Uma solução aplicável seria limpar o mesmo periodicamente.
 
 		Tal como os pedidos bloqueantes, a junção de um servidor também inicia um \textit{two-phase commit}, por ser uma operação de grande relevância 
 		(a partir daqui todas as operações bloqueantes devem passar por este novo servidor) e que implica a alteração da base de dados dos servidores.
@@ -189,7 +189,7 @@
 
 	\section{Cliente}
 		Um cliente pode ser ligado a qualquer servidor, sendo que pode ainda desconectar-se e ligar-se a um outro servidor, sem perder os seus dados ou a ordenação dos mesmos.
-		Para ser identificado, o utilizador fornece o seu username quando se conecta ao servidor. Se o username não existir na base de dados, é criado. Se já existir, assume as informações já existentes.
+		Para ser identificado, o utilizador fornece o seu \textit{username} quando se conecta ao servidor. Se o \textit{username} não existir na base de dados, é criado. Se já existir, assume as informações já existentes.
 
 		Não foi implementada autenticação de utilizadores, por não ser relevante para a prática e demonstração das capacidades adquiridas nesta disciplina, pelo que não existe qualquer \textit{login} e/ou registo de utilizadores.
 
@@ -198,11 +198,11 @@
 		\subsection{Interface}
 		Um utilizador pode tomar 6 ações através da interface que lhe é disponibilizada:
 		\begin{itemize}
-			\item \textit{Tweet} - publicar uma mensagem (tweet);
+			\item \textit{Tweet} - publicar uma mensagem (\textit{tweet});
 			\item \textit{Subscribe} - subscrever tópicos, mantendo os que já subscreve;
 			\item \textit{View subscriptions} - visualizar quais os tópicos que subscreve;
-			\item \textit{Last 10 from all subscribed topics} - visualizar os últimos 10 tweets sobre os tópicos que subscreve;
-			\item \textit{Last 10 from specific topics} - visualizar os últimos 10 tweets sobre um conjunto de tópicos específico, a definir;
+			\item \textit{Last 10 from all subscribed topics} - visualizar os últimos 10 \textit{tweets} sobre os tópicos que subscreve;
+			\item \textit{Last 10 from specific topics} - visualizar os últimos 10 \textit{tweets} sobre um conjunto de tópicos específico, a definir;
 			\item \textit{Exit} - terminar a conexão ao servidor/sistema.
 		\end{itemize}
 
@@ -211,7 +211,7 @@
 
 		O sistema foi implementado de forma a que possam ser adicionados servidores ao mesmo tempo depois deste já ter sido utilizado, 
 		permitindo assim a alteração do número de servidores a qualquer momento no tempo e não ficando o sistema restringido ao número de servidores com que foi inicializado.
-		Não foi implementada a possibilidade de um servidor se desconectar do sistema, embora a mesma seja fácil (um simples \textit{two-phase commit}).
+		Não foi implementada a possibilidade de um servidor se desconectar do sistema, embora a mesma seja fácil (através de um simples \textit{two-phase commit}).
 
 		\subsection{Modularização de código}
 		
